@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbito 轉轉棋 - 旗艦版</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              400: '#38bdf8',
+              500: '#0284c7',
+              600: '#0284c7',
+              900: '#0c4a6e',
+            },
+            player1: '#38bdf8', // Neon Cyan / Dark Marble
+            player2: '#f43f5e', // Neon Rose / Light Marble
+          },
+          boxShadow: {
+            'glow-p1': '0 0 20px rgba(56, 189, 248, 0.6)',
+            'glow-p2': '0 0 20px rgba(244, 63, 94, 0.6)',
+            'glow-gold': '0 0 25px rgba(234, 179, 8, 0.8)',
+          },
+          keyframes: {
+            pulseGlow: {
+              '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
+              '50%': { opacity: '0.9', transform: 'scale(1.05)' },
+            },
+            orbitRotate: {
+              '0%': { transform: 'rotate(0deg)' },
+              '100%': { transform: 'rotate(-360deg)' }
+            },
+            piecePop: {
+              '0%': { transform: 'scale(0.3)', opacity: '0' },
+              '70%': { transform: 'scale(1.15)' },
+              '100%': { transform: 'scale(1)', opacity: '1' }
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulseGlow 2.5s infinite ease-in-out',
+            'spin-orbit': 'orbitRotate 12s linear infinite',
+            'piece-pop': 'piecePop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+          }
+        }
+      }
+    }
+  </script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+      background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 60%, #020617 100%);
+      min-height: 100vh;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    /* Board glassmorphism */
+    .glass-panel {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Radial rings decoration */
+    .ring-guide {
+      pointer-events: none;
+      border: 2px dashed rgba(255, 255, 255, 0.12);
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      transition: all 0.3s ease;
+    }
+
+    /* Marble styling */
+    .marble {
+      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .marble-p1 {
+      background: radial-gradient(circle at 35% 35%, #7dd3fc, #0284c7 60%, #0369a1 100%);
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.6);
+    }
+    .marble-p2 {
+      background: radial-gradient(circle at 35% 35%, #fda4af, #e11d48 60%, #9f1239 100%);
+      box-shadow: 0 4px 12px rgba(225, 29, 72, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.6);
+    }
+
+    /* Hover preview ghost piece */
+    .ghost-p1 {
+      background: rgba(56, 189, 248, 0.35);
+      border: 2px dashed #38bdf8;
+    }
+    .ghost-p2 {
+      background: rgba(244, 63, 94, 0.35);
+      border: 2px dashed #f43f5e;
+    }
+    
+    /* Destination preview indicator */
+    .dest-preview {
+      background: rgba(234, 179, 8, 0.25);
+      border: 2px dotted #eab308;
+    }
+
+    /* Winning highlight line */
+    .winning-cell {
+      animation: winGlow 1.2s infinite alternate ease-in-out;
+    }
+    @keyframes winGlow {
+      0% { box-shadow: 0 0 10px #eab308, inset 0 0 15px #fef08a; transform: scale(1.02); }
+      100% { box-shadow: 0 0 25px #eab308, inset 0 0 25px #fef08a; transform: scale(1.08); }
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="text-slate-100 flex flex-col items-center justify-between min-h-screen p-2 sm:p-4 overflow-x-hidden">
+
+  <!-- Navigation Header -->
+  <header class="w-full max-w-4xl flex items-center justify-between px-4 py-3 glass-panel rounded-2xl mb-3 shadow-xl border-slate-700/50">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-cyan-500/30">
+        <i class="fa-solid font-bold fa-arrows-spin animate-spin-orbit"></i>
+      </div>
+      <div>
+        <h1 class="font-extrabold text-xl sm:text-2xl tracking-wide bg-gradient-to-r from-cyan-400 via-sky-200 to-indigo-300 bg-clip-text text-transparent">
+          Orbito 轉轉棋
+        </h1>
+        <p class="text-xs text-slate-400 font-medium">連珠 x 環形公轉策略對決</p>
+      </div>
+    </div>
+
+    <!-- Right Controls: Audio & Rules -->
+    <div class="flex items-center space-x-2">
+      <button id="btnSound" title="切換音效" class="w-10 h-10 rounded-xl glass-panel hover:bg-slate-700/60 flex items-center justify-center text-slate-300 hover:text-white transition-all">
+        <i id="soundIcon" class="fa-solid fa-volume-high text-lg"></i>
+      </button>
+      <button id="btnRules" title="遊戲規則說明" class="w-10 h-10 rounded-xl glass-panel hover:bg-slate-700/60 flex items-center justify-center text-slate-300 hover:text-white transition-all">
+        <i class="fa-solid fa-circle-question text-lg"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="w-full max-w-4xl flex-1 flex flex-col items-center justify-center gap-4">
+    
+    <!-- Top Configuration Bar (Mode, Size, AI Difficulty) -->
+    <div class="w-full glass-panel rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+      
+      <!-- Mode Toggle -->
+      <div class="flex items-center bg-slate-900/70 p-1 rounded-xl border border-slate-700/60">
+        <button id="modePvP" class="px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-1.5 bg-cyan-600 text-white shadow-md">
+          <i class="fa-solid fa-user-group text-xs"></i>
+          <span>雙人對戰</span>
+        </button>
+        <button id="modePvE" class="px-3 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white transition-all flex items-center space-x-1.5">
+          <i class="fa-solid fa-robot text-xs"></i>
+          <span>人機對戰</span>
+        </button>
+      </div>
+
+      <!-- AI Difficulty (PvE context) -->
+      <div id="aiDiffGroup" class="hidden items-center space-x-2 bg-slate-900/70 px-3 py-1.5 rounded-xl border border-slate-700/60">
+        <span class="text-xs font-medium text-slate-400">AI 難度:</span>
+        <select id="aiDifficulty" class="bg-transparent text-cyan-400 font-bold focus:outline-none cursor-pointer">
+          <option value="easy" class="bg-slate-900 text-white">簡單 (Easy)</option>
+          <option value="medium" selected class="bg-slate-900 text-white">中等 (Medium)</option>
+          <option value="hard" class="bg-slate-900 text-white">困難 (Hard)</option>
+        </select>
+      </div>
+
+      <!-- Board Size Selector -->
+      <div class="flex items-center space-x-2 bg-slate-900/70 px-3 py-1 rounded-xl border border-slate-700/60">
+        <span class="text-xs font-medium text-slate-400">棋盤:</span>
+        <button data-size="4" class="size-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-600 text-white">4x4</button>
+        <button data-size="5" class="size-btn px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">5x5</button>
+        <button data-size="6" class="size-btn px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">6x6</button>
+      </div>
+
+      <!-- Auto Rotate Toggle -->
+      <label class="flex items-center space-x-2 cursor-pointer bg-slate-900/70 px-3 py-1.5 rounded-xl border border-slate-700/60 hover:border-slate-500 transition-all">
+        <input type="checkbox" id="chkAutoRotate" checked class="sr-only peer">
+        <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-600 relative"></div>
+        <span class="text-xs font-semibold text-slate-300">落子自動旋轉</span>
+      </label>
+    </div>
+
+    <!-- Status Dashboard -->
+    <div class="w-full flex items-center justify-between px-4 py-3 glass-panel rounded-2xl shadow-lg border-slate-700/40">
+      
+      <!-- Player 1 Status -->
+      <div id="p1Card" class="flex items-center space-x-3 px-3 py-2 rounded-xl transition-all border border-cyan-500/40 bg-cyan-950/40 shadow-glow-p1">
+        <div class="w-7 h-7 sm:w-9 sm:h-9 rounded-full marble-p1 flex items-center justify-center text-xs font-black text-white shadow-md">
+          1
+        </div>
+        <div>
+          <div id="p1Name" class="font-bold text-xs sm:text-sm text-cyan-300">玩家 1 (藍)</div>
+          <div id="p1Score" class="text-[10px] sm:text-xs text-slate-400">4 連珠獲勝</div>
+        </div>
+      </div>
+
+      <!-- Center Action Indicator -->
+      <div class="flex flex-col items-center justify-center text-center">
+        <span id="turnMsg" class="text-xs sm:text-sm font-extrabold tracking-wide text-amber-400 animate-pulse">
+          輪到 玩家 1 落子
+        </span>
+        <span id="subMsg" class="text-[10px] sm:text-xs text-slate-400">點擊空白棋格放置棋子</span>
+      </div>
+
+      <!-- Player 2 Status -->
+      <div id="p2Card" class="flex items-center space-x-3 px-3 py-2 rounded-xl transition-all opacity-50 border border-transparent">
+        <div class="w-7 h-7 sm:w-9 sm:h-9 rounded-full marble-p2 flex items-center justify-center text-xs font-black text-white shadow-md">
+          2
+        </div>
+        <div>
+          <div id="p2Name" class="font-bold text-xs sm:text-sm text-rose-300">玩家 2 (紅)</div>
+          <div id="p2Score" class="text-[10px] sm:text-xs text-slate-400">4 連珠獲勝</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Game Board -->
+    <div class="relative flex items-center justify-center p-3 sm:p-6 glass-panel rounded-3xl shadow-2xl border-slate-700/60 w-full max-w-[500px] aspect-square">
+      
+      <!-- Direction Indicator Arrow Overlay -->
+      <div class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-20">
+        <div class="w-3/4 h-3/4 border-2 border-dashed border-cyan-400 rounded-full animate-spin-orbit"></div>
+        <div class="absolute top-4 left-1/2 -translate-x-1/2 text-cyan-400 text-xs font-bold flex items-center space-x-1 bg-slate-900/80 px-2 py-0.5 rounded-full">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span>逆時針旋轉</span>
+        </div>
+      </div>
+
+      <!-- Dynamic CSS Grid Container -->
+      <div id="boardContainer" class="relative z-10 w-full h-full grid gap-2 sm:gap-3 p-2 bg-slate-950/80 rounded-2xl border border-slate-800 shadow-inner">
+        <!-- Cells generated via JS -->
+      </div>
+    </div>
+
+    <!-- Control Buttons Toolbar -->
+    <div class="w-full flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
+      
+      <!-- UNDO BUTTON (悔棋) -->
+      <button id="btnUndo" disabled class="px-5 py-2.5 rounded-xl font-bold text-sm bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:border-slate-800 disabled:shadow-none text-slate-900 shadow-lg shadow-amber-600/30 transition-all flex items-center space-x-2 border border-amber-400/50 active:scale-95 cursor-pointer disabled:cursor-not-allowed">
+        <i class="fa-solid fa-rotate-left"></i>
+        <span>悔棋 (Undo)</span>
+        <span id="undoBadge" class="ml-1 px-1.5 py-0.5 text-[10px] bg-amber-950/80 text-amber-200 rounded-full font-mono">0</span>
+      </button>
+
+      <!-- ORBIT BUTTON (手動旋轉棋盤) -->
+      <button id="btnOrbit" disabled class="px-6 py-2.5 rounded-xl font-extrabold text-sm bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 disabled:shadow-none text-white shadow-lg shadow-cyan-500/30 transition-all flex items-center space-x-2 border border-cyan-300/40 active:scale-95 cursor-pointer disabled:cursor-not-allowed">
+        <i class="fa-solid fa-arrows-spin"></i>
+        <span>轉動棋盤 (Orbit)</span>
+      </button>
+
+      <!-- NEW GAME BUTTON (重新開始) -->
+      <button id="btnRestart" class="px-5 py-2.5 rounded-xl font-bold text-sm glass-panel hover:bg-slate-700/80 text-slate-200 shadow-lg transition-all flex items-center space-x-2 border border-slate-600 active:scale-95 cursor-pointer">
+        <i class="fa-solid fa-arrows-rotate"></i>
+        <span>重新開始</span>
+      </button>
+    </div>
+  </main>
+
+  <footer class="mt-4 mb-1 text-center text-xs text-slate-500">
+    Orbito 轉轉棋 · 環形位移對弈版 &copy; 2026
+  </footer>
+
+  <!-- Rules Modal -->
+  <div id="modalRules" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass-panel w-full max-w-lg rounded-3xl p-6 border-slate-700 shadow-2xl flex flex-col max-h-[90vh]">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-700/60 mb-4">
+        <h2 class="text-xl font-extrabold text-cyan-400 flex items-center space-x-2">
+          <i class="fa-solid fa-book-open"></i>
+          <span>Orbito 轉轉棋 玩法規則</span>
+        </h2>
+        <button id="btnCloseRules" class="text-slate-400 hover:text-white text-xl">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      
+      <div class="space-y-4 text-sm text-slate-300 overflow-y-auto pr-2">
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+          <h3 class="font-bold text-amber-300 mb-1 flex items-center space-x-1.5">
+            <i class="fa-solid fa-circle-dot"></i>
+            <span>1. 落子 phase</span>
+          </h3>
+          <p>輪到你的回合時，可以在棋盤上任意【空白格子】放入一顆屬於自己顏色的棋子。</p>
+        </div>
+
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+          <h3 class="font-bold text-cyan-300 mb-1 flex items-center space-x-1.5">
+            <i class="fa-solid fa-rotate-left"></i>
+            <span>2. 棋盤公轉 (Orbito Shift)</span>
+          </h3>
+          <p>落子後，點擊「轉動棋盤」按鈕（或開啟自動旋轉），棋盤上【所有同心環上的棋子】都會順著同心環順向**逆時針滑動 1 格**！</p>
+        </div>
+
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+          <h3 class="font-bold text-emerald-300 mb-1 flex items-center space-x-1.5">
+            <i class="fa-solid fa-trophy"></i>
+            <span>3. 勝利條件</span>
+          </h3>
+          <p>在棋盤**旋轉結束後**，率先在橫向、縱向或斜向達成 **4 子連線** 的玩家立即獲得勝利！</p>
+        </div>
+
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+          <h3 class="font-bold text-rose-300 mb-1 flex items-center space-x-1.5">
+            <i class="fa-solid fa-reply"></i>
+            <span>4. 悔棋機制 (Undo)</span>
+          </h3>
+          <p>遊戲全程支援悔棋！在人機對戰模式下，悔棋會同時退回玩家與 AI 的上一步；在雙人對戰模式下則退回上一位的回合。遊戲結束後亦可悔棋重試不同策略。</p>
+        </div>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-slate-700/60 flex justify-end">
+        <button id="btnGotRules" class="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 font-bold text-white shadow-lg shadow-cyan-600/30">
+          我知道了，開始遊戲
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Winner Modal -->
+  <div id="modalWin" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass-panel w-full max-w-md rounded-3xl p-6 text-center border-amber-500/50 shadow-glow-gold flex flex-col items-center">
+      <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-4xl text-slate-950 shadow-xl mb-4 animate-bounce">
+        <i class="fa-solid fa-crown"></i>
+      </div>
+      
+      <h2 id="winTitle" class="text-2xl font-black text-amber-300 mb-2">
+        玩家 1 獲得勝利！
+      </h2>
+      <p id="winDesc" class="text-sm text-slate-300 mb-6">
+        成功在同心環位移後達成 4 子連線！
+      </p>
+
+      <div class="flex items-center justify-center gap-3 w-full">
+        <!-- Undo from Win Screen -->
+        <button id="btnModalUndo" class="flex-1 py-3 rounded-xl font-bold bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-lg shadow-amber-600/30 transition-all flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-rotate-left"></i>
+          <span>悔棋重試</span>
+        </button>
+        <!-- Play Again -->
+        <button id="btnModalPlayAgain" class="flex-1 py-3 rounded-xl font-bold bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/30 transition-all flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-play"></i>
+          <span>再玩一局</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* Sound Synthesizer using Web Audio API */
+    class SoundFx {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            this.ctx = new AudioContext();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playPlace() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.12);
+      }
+      playRotate() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.25);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.25);
+      }
+      playUndo() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(500, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.2);
+      }
+      playWin() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+          gain.gain.setValueAtTime(0.3, now + idx * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.4);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.1);
+          osc.stop(now + idx * 0.1 + 0.4);
+        });
+      }
+    }
+
+    const sfx = new SoundFx();
+
+    /* Orbito Board Engine & State */
+    class OrbitoGame {
+      constructor() {
+        this.boardSize = 4; // Default 4x4
+        this.grid = [];
+        this.currentPlayer = 1; // 1: Player 1 (Blue), 2: Player 2 (Red)
+        this.gameMode = 'pvp'; // 'pvp' or 'pve'
+        this.aiDifficulty = 'medium';
+        this.autoRotate = true;
+        this.gamePhase = 'PLACE'; // 'PLACE', 'ROTATE', 'ANIMATING', 'GAMEOVER'
+        this.winner = null;
+        this.winningCells = [];
+        this.historyStack = []; // History snapshots for UNDO functionality
+        this.hoverCell = null;
+        this.isAiThinking = false;
+      }
+
+      init(size = 4, mode = 'pvp', difficulty = 'medium', autoRot = true) {
+        this.boardSize = parseInt(size);
+        this.gameMode = mode;
+        this.aiDifficulty = difficulty;
+        this.autoRotate = autoRot;
+        this.currentPlayer = 1;
+        this.gamePhase = 'PLACE';
+        this.winner = null;
+        this.winningCells = [];
+        this.historyStack = [];
+        this.isAiThinking = false;
+        
+        // Initialize grid (0: empty, 1: player 1, 2: player 2)
+        this.grid = Array.from({ length: this.boardSize }, () => Array(this.boardSize).fill(0));
+      }
+
+      // Save snapshot to history stack for UNDO
+      saveSnapshot() {
+        const state = {
+          grid: this.grid.map(row => [...row]),
+          currentPlayer: this.currentPlayer,
+          gamePhase: this.gamePhase,
+          winner: this.winner,
+          winningCells: [...this.winningCells]
+        };
+        this.historyStack.push(JSON.stringify(state));
+      }
+
+      // Undo functionality
+      undo() {
+        if (this.historyStack.length === 0 || this.isAiThinking) return false;
+
+        sfx.playUndo();
+
+        if (this.gameMode === 'pve') {
+          // In PvE mode, undo should revert both AI's move and player's move if possible
+          // If game is over after AI move, or during player turn, revert back to start of player's previous turn.
+          if (this.historyStack.length >= 2) {
+            this.historyStack.pop(); // Pop AI turn snapshot
+            const prev = JSON.parse(this.historyStack.pop()); // Pop Player turn snapshot
+            this.restoreState(prev);
+          } else {
+            // Only 1 snapshot exists
+            const prev = JSON.parse(this.historyStack.pop());
+            this.restoreState(prev);
+          }
+        } else {
+          // PvP mode: undo 1 step
+          const prev = JSON.parse(this.historyStack.pop());
+          this.restoreState(prev);
+        }
+        return true;
+      }
+
+      restoreState(state) {
+        this.grid = state.grid.map(row => [...row]);
+        this.currentPlayer = state.currentPlayer;
+        this.gamePhase = state.gamePhase;
+        this.winner = state.winner;
+        this.winningCells = state.winningCells ? [...state.winningCells] : [];
+      }
+
+      // Counter-clockwise Concentric Ring Coordinates Generator
+      getConcentricRings() {
+        const rings = [];
+        const numRings = Math.floor(this.boardSize / 2);
+
+        for (let r = 0; r < numRings; r++) {
+          const ringCoords = [];
+          const min = r;
+          const max = this.boardSize - 1 - r;
+
+          if (min === max) {
+            ringCoords.push({ r: min, c: min });
+          } else {
+            // Top edge (right to left)
+            for (let c = max; c > min; c--) ringCoords.push({ r: min, c });
+            // Left edge (top to bottom)
+            for (let row = min; row < max; row++) ringCoords.push({ r: row, c: min });
+            // Bottom edge (left to right)
+            for (let c = min; c < max; c++) ringCoords.push({ r: max, c });
+            // Right edge (bottom to top)
+            for (let row = max; row > min; row--) ringCoords.push({ r: row, c: max });
+          }
+          rings.push(ringCoords);
+        }
+        return rings;
+      }
+
+      // Calculate destination cell for any position after 1 step CCW rotation
+      getRotatedDestination(r, c) {
+        const rings = this.getConcentricRings();
+        for (const ring of rings) {
+          const idx = ring.findIndex(cell => cell.r === r && cell.c === c);
+          if (idx !== -1) {
+            const nextIdx = (idx + 1) % ring.length;
+            return ring[nextIdx];
+          }
+        }
+        return { r, c }; // Center cell in odd sized grids stays stationary
+      }
+
+      // Execute Ring Rotation on grid matrix
+      rotateBoard() {
+        const newGrid = Array.from({ length: this.boardSize }, () => Array(this.boardSize).fill(0));
+        const rings = this.getConcentricRings();
+
+        for (const ring of rings) {
+          const len = ring.length;
+          for (let i = 0; i < len; i++) {
+            const curr = ring[i];
+            const next = ring[(i + 1) % len];
+            newGrid[next.r][next.c] = this.grid[curr.r][curr.c];
+          }
+        }
+
+        // Preserve center cell if boardSize is odd (e.g., 5x5)
+        if (this.boardSize % 2 !== 0) {
+          const center = Math.floor(this.boardSize / 2);
+          newGrid[center][center] = this.grid[center][center];
+        }
+
+        this.grid = newGrid;
+      }
+
+      // Place marble at (r, c)
+      placePiece(r, c) {
+        if (this.gamePhase !== 'PLACE' || this.grid[r][c] !== 0) return false;
+
+        this.saveSnapshot();
+        this.grid[r][c] = this.currentPlayer;
+        sfx.playPlace();
+
+        if (this.autoRotate) {
+          this.gamePhase = 'ROTATE';
+        } else {
+          this.gamePhase = 'ROTATE';
+        }
+        return true;
+      }
+
+      // Check 4-in-a-row Win condition across rows, cols, diagonals
+      checkWin() {
+        const targetLen = 4; // Standard Orbito 4-in-a-row
+        const lines = [];
+
+        // Rows
+        for (let r = 0; r < this.boardSize; r++) {
+          for (let c = 0; c <= this.boardSize - targetLen; c++) {
+            lines.push(Array.from({ length: targetLen }, (_, i) => ({ r, c: c + i })));
+          }
+        }
+        // Cols
+        for (let c = 0; c < this.boardSize; c++) {
+          for (let r = 0; r <= this.boardSize - targetLen; r++) {
+            lines.push(Array.from({ length: targetLen }, (_, i) => ({ r: r + i, c })));
+          }
+        }
+        // Diagonals (Top-Left to Bottom-Right)
+        for (let r = 0; r <= this.boardSize - targetLen; r++) {
+          for (let c = 0; c <= this.boardSize - targetLen; c++) {
+            lines.push(Array.from({ length: targetLen }, (_, i) => ({ r: r + i, c: c + i })));
+          }
+        }
+        // Diagonals (Top-Right to Bottom-Left)
+        for (let r = 0; r <= this.boardSize - targetLen; r++) {
+          for (let c = targetLen - 1; c < this.boardSize; c++) {
+            lines.push(Array.from({ length: targetLen }, (_, i) => ({ r: r + i, c: c - i })));
+          }
+        }
+
+        let p1Win = false;
+        let p2Win = false;
+        let p1Cells = [];
+        let p2Cells = [];
+
+        for (const line of lines) {
+          const first = this.grid[line[0].r][line[0].c];
+          if (first !== 0 && line.every(cell => this.grid[cell.r][cell.c] === first)) {
+            if (first === 1) {
+              p1Win = true;
+              p1Cells.push(...line);
+            } else if (first === 2) {
+              p2Win = true;
+              p2Cells.push(...line);
+            }
+          }
+        }
+
+        if (p1Win && p2Win) {
+          // If both get 4-in-a-row, current active player wins by Orbito priority rule
+          this.winner = this.currentPlayer;
+          this.winningCells = this.currentPlayer === 1 ? p1Cells : p2Cells;
+          this.gamePhase = 'GAMEOVER';
+          return this.winner;
+        } else if (p1Win) {
+          this.winner = 1;
+          this.winningCells = p1Cells;
+          this.gamePhase = 'GAMEOVER';
+          return 1;
+        } else if (p2Win) {
+          this.winner = 2;
+          this.winningCells = p2Cells;
+          this.gamePhase = 'GAMEOVER';
+          return 2;
+        }
+
+        // Check Draw (Board full)
+        let isFull = true;
+        for (let r = 0; r < this.boardSize; r++) {
+          for (let c = 0; c < this.boardSize; c++) {
+            if (this.grid[r][c] === 0) { isFull = false; break; }
+          }
+        }
+        if (isFull) {
+          this.winner = 'DRAW';
+          this.gamePhase = 'GAMEOVER';
+          return 'DRAW';
+        }
+
+        return null;
+      }
+
+      // Switch turn
+      nextTurn() {
+        this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
+        this.gamePhase = 'PLACE';
+      }
+
+      // AI Move Selection (Easy, Medium, Hard)
+      getAiMove() {
+        const emptyCells = [];
+        for (let r = 0; r < this.boardSize; r++) {
+          for (let c = 0; c < this.boardSize; c++) {
+            if (this.grid[r][c] === 0) emptyCells.push({ r, c });
+          }
+        }
+
+        if (emptyCells.length === 0) return null;
+
+        if (this.aiDifficulty === 'easy') {
+          return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+        }
+
+        // Medium & Hard AI: Check winning/blocking moves after rotation
+        let bestMove = null;
+        let maxScore = -Infinity;
+
+        for (const cell of emptyCells) {
+          let score = 0;
+          
+          // Test AI Placement (Player 2)
+          const simGrid = this.grid.map(row => [...row]);
+          simGrid[cell.r][cell.c] = 2;
+
+          // Simulate Rotation
+          const rotatedGrid = this.simulateRotationOn(simGrid);
+
+          // Evaluate score
+          if (this.checkWinOnGrid(rotatedGrid, 2)) {
+            score += 10000; // Immediate win for AI
+          }
+
+          // Check if blocking human player (Player 1) immediate win
+          const simHumanGrid = this.grid.map(row => [...row]);
+          simHumanGrid[cell.r][cell.c] = 1;
+          const rotatedHuman = this.simulateRotationOn(simHumanGrid);
+          if (this.checkWinOnGrid(rotatedHuman, 1)) {
+            score += 5000; // Block human win
+          }
+
+          if (this.aiDifficulty === 'hard') {
+            // Favor center/inner ring positions
+            const center = (this.boardSize - 1) / 2;
+            const distFromCenter = Math.abs(cell.r - center) + Math.abs(cell.c - center);
+            score += (10 - distFromCenter);
+          }
+
+          // Add slight randomness to avoid predictable AI
+          score += Math.random() * 10;
+
+          if (score > maxScore) {
+            maxScore = score;
+            bestMove = cell;
+          }
+        }
+
+        return bestMove || emptyCells[Math.floor(Math.random() * emptyCells.length)];
+      }
+
+      simulateRotationOn(gridMatrix) {
+        const newGrid = Array.from({ length: this.boardSize }, () => Array(this.boardSize).fill(0));
+        const rings = this.getConcentricRings();
+        for (const ring of rings) {
+          const len = ring.length;
+          for (let i = 0; i < len; i++) {
+            const curr = ring[i];
+            const next = ring[(i + 1) % len];
+            newGrid[next.r][next.c] = gridMatrix[curr.r][curr.c];
+          }
+        }
+        if (this.boardSize % 2 !== 0) {
+          const center = Math.floor(this.boardSize / 2);
+          newGrid[center][center] = gridMatrix[center][center];
+        }
+        return newGrid;
+      }
+
+      checkWinOnGrid(gridMatrix, player) {
+        const targetLen = 4;
+        // Check rows, cols, diagonals for target length
+        for (let r = 0; r < this.boardSize; r++) {
+          for (let c = 0; c <= this.boardSize - targetLen; c++) {
+            if (Array.from({ length: targetLen }, (_, i) => gridMatrix[r][c + i]).every(v => v === player)) return true;
+          }
+        }
+        for (let c = 0; c < this.boardSize; c++) {
+          for (let r = 0; r <= this.boardSize - targetLen; r++) {
+            if (Array.from({ length: targetLen }, (_, i) => gridMatrix[r + i][c]).every(v => v === player)) return true;
+          }
+        }
+        for (let r = 0; r <= this.boardSize - targetLen; r++) {
+          for (let c = 0; c <= this.boardSize - targetLen; c++) {
+            if (Array.from({ length: targetLen }, (_, i) => gridMatrix[r + i][c + i]).every(v => v === player)) return true;
+          }
+        }
+        for (let r = 0; r <= this.boardSize - targetLen; r++) {
+          for (let c = targetLen - 1; c < this.boardSize; c++) {
+            if (Array.from({ length: targetLen }, (_, i) => gridMatrix[r + i][c - i]).every(v => v === player)) return true;
+          }
+        }
+        return false;
+      }
+    }
+
+    /* UI Controller & Event Handlers */
+    const game = new OrbitoGame();
+
+    // DOM Elements
+    const boardContainer = document.getElementById('boardContainer');
+    const turnMsg = document.getElementById('turnMsg');
+    const subMsg = document.getElementById('subMsg');
+    const p1Card = document.getElementById('p1Card');
+    const p2Card = document.getElementById('p2Card');
+    const p1Name = document.getElementById('p1Name');
+    const p2Name = document.getElementById('p2Name');
+    const btnUndo = document.getElementById('btnUndo');
+    const undoBadge = document.getElementById('undoBadge');
+    const btnOrbit = document.getElementById('btnOrbit');
+    const btnRestart = document.getElementById('btnRestart');
+    const modePvP = document.getElementById('modePvP');
+    const modePvE = document.getElementById('modePvE');
+    const aiDiffGroup = document.getElementById('aiDiffGroup');
+    const aiDifficulty = document.getElementById('aiDifficulty');
+    const chkAutoRotate = document.getElementById('chkAutoRotate');
+    const modalRules = document.getElementById('modalRules');
+    const modalWin = document.getElementById('modalWin');
+    const btnSound = document.getElementById('btnSound');
+    const soundIcon = document.getElementById('soundIcon');
+    const winTitle = document.getElementById('winTitle');
+    const winDesc = document.getElementById('winDesc');
+
+    // Initialize UI
+    function initGame() {
+      const activeSizeBtn = document.querySelector('.size-btn.bg-indigo-600');
+      const size = activeSizeBtn ? activeSizeBtn.dataset.size : 4;
+      const mode = modePvE.classList.contains('bg-cyan-600') ? 'pve' : 'pvp';
+      const diff = aiDifficulty.value;
+      const autoRot = chkAutoRotate.checked;
+
+      game.init(size, mode, diff, autoRot);
+      renderBoard();
+      updateStatus();
+    }
+
+    // Render Grid UI
+    function renderBoard() {
+      boardContainer.innerHTML = '';
+      boardContainer.style.gridTemplateColumns = `repeat(${game.boardSize}, minmax(0, 1fr))`;
+      boardContainer.style.gridTemplateRows = `repeat(${game.boardSize}, minmax(0, 1fr))`;
+
+      for (let r = 0; r < game.boardSize; r++) {
+        for (let c = 0; c < game.boardSize; c++) {
+          const cellBtn = document.createElement('button');
+          cellBtn.className = `relative rounded-xl glass-panel flex items-center justify-center transition-all duration-200 border border-slate-700/50 hover:border-slate-500 overflow-hidden group cursor-pointer`;
+          cellBtn.dataset.r = r;
+          cellBtn.dataset.c = c;
+
+          const val = game.grid[r][c];
+          const isWinning = game.winningCells.some(cell => cell.r === r && cell.c === c);
+
+          if (isWinning) {
+            cellBtn.classList.add('winning-cell', 'border-amber-400');
+          }
+
+          if (val === 1) {
+            const marble = document.createElement('div');
+            marble.className = `w-4/5 h-4/5 rounded-full marble marble-p1 animate-piece-pop`;
+            cellBtn.appendChild(marble);
+          } else if (val === 2) {
+            const marble = document.createElement('div');
+            marble.className = `w-4/5 h-4/5 rounded-full marble marble-p2 animate-piece-pop`;
+            cellBtn.appendChild(marble);
+          } else {
+            // Empty Cell Hover Event Setup
+            cellBtn.addEventListener('mouseenter', () => handleCellHover(r, c));
+            cellBtn.addEventListener('mouseleave', handleCellLeave);
+            cellBtn.addEventListener('click', () => handleCellClick(r, c));
+          }
+
+          boardContainer.appendChild(cellBtn);
+        }
+      }
+
+      // If hover preview active
+      if (game.hoverCell && game.gamePhase === 'PLACE' && !game.isAiThinking) {
+        renderHoverPreview(game.hoverCell.r, game.hoverCell.c);
+      }
+    }
+
+    // Handle Hover Preview: Ghost Piece + Rotation Destination Indicator
+    function handleCellHover(r, c) {
+      if (game.gamePhase !== 'PLACE' || game.isAiThinking || (game.gameMode === 'pve' && game.currentPlayer === 2)) return;
+      game.hoverCell = { r, c };
+      renderBoardHoverEffects(r, c);
+    }
+
+    function handleCellLeave() {
+      game.hoverCell = null;
+      clearHoverEffects();
+    }
+
+    function renderBoardHoverEffects(r, c) {
+      clearHoverEffects();
+      const cellBtn = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+      if (cellBtn && game.grid[r][c] === 0) {
+        // Ghost Marble Preview
+        const ghost = document.createElement('div');
+        ghost.id = 'ghostPiece';
+        ghost.className = `w-4/5 h-4/5 rounded-full ${game.currentPlayer === 1 ? 'ghost-p1' : 'ghost-p2'} animate-pulse`;
+        cellBtn.appendChild(ghost);
+
+        // Calculate and highlight destination cell after rotation
+        const dest = game.getRotatedDestination(r, c);
+        const destBtn = document.querySelector(`[data-r="${dest.r}"][data-c="${dest.c}"]`);
+        if (destBtn) {
+          const destHighlight = document.createElement('div');
+          destHighlight.id = 'destHighlight';
+          destHighlight.className = 'absolute inset-0 dest-preview rounded-xl flex items-center justify-center pointer-events-none';
+          destHighlight.innerHTML = `<i class="fa-solid fa-arrow-turn-down text-amber-300 text-xs opacity-80 rotate-90"></i>`;
+          destBtn.appendChild(destHighlight);
+        }
+      }
+    }
+
+    function clearHoverEffects() {
+      const g = document.getElementById('ghostPiece');
+      if (g) g.remove();
+      const d = document.getElementById('destHighlight');
+      if (d) d.remove();
+    }
+
+    // Handle Cell Click (Place Piece)
+    function handleCellClick(r, c) {
+      if (game.gamePhase !== 'PLACE' || game.isAiThinking) return;
+      if (game.gameMode === 'pve' && game.currentPlayer === 2) return;
+
+      clearHoverEffects();
+      const placed = game.placePiece(r, c);
+      if (!placed) return;
+
+      renderBoard();
+      updateStatus();
+
+      if (game.autoRotate) {
+        setTimeout(() => {
+          executeRotationSequence();
+        }, 350);
+      }
+    }
+
+    // Handle Rotation Execution
+    function executeRotationSequence() {
+      if (game.gamePhase !== 'ROTATE' && game.gamePhase !== 'PLACE') return;
+
+      game.gamePhase = 'ANIMATING';
+      sfx.playRotate();
+      updateStatus();
+
+      // Add rotation animation class to board
+      boardContainer.classList.add('transition-transform', 'duration-500', '-rotate-90');
+
+      setTimeout(() => {
+        boardContainer.classList.remove('transition-transform', 'duration-500', '-rotate-90');
+        game.rotateBoard();
+
+        const winResult = game.checkWin();
+        renderBoard();
+
+        if (winResult) {
+          sfx.playWin();
+          updateStatus();
+          showWinModal();
+        } else {
+          game.nextTurn();
+          updateStatus();
+          triggerAiIfNeeded();
+        }
+      }, 500);
+    }
+
+    // Trigger AI turn in PvE mode
+    function triggerAiIfNeeded() {
+      if (game.gameMode === 'pve' && game.currentPlayer === 2 && game.gamePhase === 'PLACE' && !game.winner) {
+        game.isAiThinking = true;
+        updateStatus();
+
+        setTimeout(() => {
+          const aiMove = game.getAiMove();
+          game.isAiThinking = false;
+
+          if (aiMove) {
+            game.placePiece(aiMove.r, aiMove.c);
+            renderBoard();
+            updateStatus();
+
+            setTimeout(() => {
+              executeRotationSequence();
+            }, 400);
+          }
+        }, 600);
+      }
+    }
+
+    // Update Status Dashboard & Buttons
+    function updateStatus() {
+      // Undo Button & Badge
+      btnUndo.disabled = game.historyStack.length === 0 || game.isAiThinking;
+      undoBadge.textContent = game.historyStack.length;
+
+      // Orbit Button State
+      btnOrbit.disabled = game.gamePhase !== 'ROTATE' || game.isAiThinking;
+      if (game.gamePhase === 'ROTATE' && !game.autoRotate) {
+        btnOrbit.classList.add('animate-pulse', 'ring-4', 'ring-cyan-400/50');
+      } else {
+        btnOrbit.classList.remove('animate-pulse', 'ring-4', 'ring-cyan-400/50');
+      }
+
+      // Player Active Cards
+      if (game.currentPlayer === 1) {
+        p1Card.className = "flex items-center space-x-3 px-3 py-2 rounded-xl transition-all border border-cyan-500/40 bg-cyan-950/40 shadow-glow-p1";
+        p2Card.className = "flex items-center space-x-3 px-3 py-2 rounded-xl transition-all opacity-40 border border-transparent";
+      } else {
+        p2Card.className = "flex items-center space-x-3 px-3 py-2 rounded-xl transition-all border border-rose-500/40 bg-rose-950/40 shadow-glow-p2";
+        p1Card.className = "flex items-center space-x-3 px-3 py-2 rounded-xl transition-all opacity-40 border border-transparent";
+      }
+
+      // Labels
+      if (game.gameMode === 'pve') {
+        p2Name.textContent = `AI 機器人 (${game.aiDifficulty.toUpperCase()})`;
+      } else {
+        p2Name.textContent = `玩家 2 (紅)`;
+      }
+
+      // Status Banner Message
+      if (game.gamePhase === 'GAMEOVER') {
+        if (game.winner === 'DRAW') {
+          turnMsg.textContent = "平局！棋盤已滿";
+          turnMsg.className = "text-sm font-extrabold text-slate-300";
+        } else {
+          turnMsg.textContent = `🎉 玩家 ${game.winner} (${game.winner === 1 ? '藍' : '紅'}) 獲勝！`;
+          turnMsg.className = "text-sm font-extrabold text-amber-300 animate-bounce";
+        }
+        subMsg.textContent = "可點擊【悔棋】退回上一步嘗試不同玩法";
+      } else if (game.isAiThinking) {
+        turnMsg.textContent = "🤖 AI 思考中...";
+        turnMsg.className = "text-sm font-extrabold text-rose-400 animate-pulse";
+        subMsg.textContent = "請稍候";
+      } else if (game.gamePhase === 'ROTATE') {
+        turnMsg.textContent = "準備旋轉棋盤...";
+        turnMsg.className = "text-sm font-extrabold text-cyan-400 animate-pulse";
+        subMsg.textContent = "同心環將逆時針位移 1 格";
+      } else if (game.gamePhase === 'ANIMATING') {
+        turnMsg.textContent = "🌀 棋盤位移中...";
+        turnMsg.className = "text-sm font-extrabold text-indigo-300 animate-pulse";
+        subMsg.textContent = "檢查 4 連珠勝利連線";
+      } else {
+        const pName = game.currentPlayer === 1 ? '玩家 1 (藍)' : (game.gameMode === 'pve' ? 'AI 機器人' : '玩家 2 (紅)');
+        turnMsg.textContent = `輪到 ${pName} 落子`;
+        turnMsg.className = "text-sm font-extrabold text-amber-400";
+        subMsg.textContent = "點擊棋盤空白格放入棋子";
+      }
+    }
+
+    // Win Modal Popup
+    function showWinModal() {
+      if (game.winner === 'DRAW') {
+        winTitle.textContent = "🤝 勢均力敵！平局";
+        winDesc.textContent = "棋盤所有空位已滿，未產生連線。";
+      } else {
+        const pName = game.winner === 1 ? '玩家 1 (藍)' : (game.gameMode === 'pve' ? 'AI 機器人' : '玩家 2 (紅)');
+        winTitle.textContent = `👑 ${pName} 獲得勝利！`;
+        winDesc.textContent = `在同心環公轉後成功達成 4 子連線！`;
+      }
+      modalWin.classList.remove('hidden');
+    }
+
+    // Event Listeners: UNDO (悔棋)
+    btnUndo.addEventListener('click', () => {
+      if (game.undo()) {
+        renderBoard();
+        updateStatus();
+        modalWin.classList.add('hidden');
+      }
+    });
+
+    document.getElementById('btnModalUndo').addEventListener('click', () => {
+      modalWin.classList.add('hidden');
+      if (game.undo()) {
+        renderBoard();
+        updateStatus();
+      }
+    });
+
+    // Orbit Manual Button
+    btnOrbit.addEventListener('click', () => {
+      executeRotationSequence();
+    });
+
+    // Restart Button
+    btnRestart.addEventListener('click', () => {
+      initGame();
+    });
+    document.getElementById('btnModalPlayAgain').addEventListener('click', () => {
+      modalWin.classList.add('hidden');
+      initGame();
+    });
+
+    // Game Mode Switchers
+    modePvP.addEventListener('click', () => {
+      modePvP.className = "px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-1.5 bg-cyan-600 text-white shadow-md";
+      modePvE.className = "px-3 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
+      aiDiffGroup.classList.add('hidden');
+      aiDiffGroup.classList.remove('flex');
+      initGame();
+    });
+
+    modePvE.addEventListener('click', () => {
+      modePvE.className = "px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-1.5 bg-cyan-600 text-white shadow-md";
+      modePvP.className = "px-3 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
+      aiDiffGroup.classList.remove('hidden');
+      aiDiffGroup.classList.add('flex');
+      initGame();
+    });
+
+    // Board Size Buttons
+    document.querySelectorAll('.size-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.size-btn').forEach(b => {
+          b.className = "size-btn px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white";
+        });
+        e.target.className = "size-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-600 text-white";
+        initGame();
+      });
+    });
+
+    // Settings Switches
+    aiDifficulty.addEventListener('change', () => initGame());
+    chkAutoRotate.addEventListener('change', () => {
+      game.autoRotate = chkAutoRotate.checked;
+    });
+
+    // Rules Modal Triggers
+    document.getElementById('btnRules').addEventListener('click', () => {
+      modalRules.classList.remove('hidden');
+    });
+    document.getElementById('btnCloseRules').addEventListener('click', () => {
+      modalRules.classList.add('hidden');
+    });
+    document.getElementById('btnGotRules').addEventListener('click', () => {
+      modalRules.classList.add('hidden');
+    });
+
+    // Sound Toggle
+    btnSound.addEventListener('click', () => {
+      sfx.muted = !sfx.muted;
+      if (sfx.muted) {
+        soundIcon.className = "fa-solid fa-volume-xmark text-lg text-slate-500";
+      } else {
+        soundIcon.className = "fa-solid fa-volume-high text-lg text-cyan-400";
+        sfx.playPlace();
+      }
+    });
+
+    // Start Game on Page Load
+    window.addEventListener('DOMContentLoaded', () => {
+      initGame();
+    });
+  </script>
+</body>
+</html>
