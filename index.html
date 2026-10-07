@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="zh-TW" class="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Orbito 轉轉棋 - 旗艦版</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orbito 轉轉棋 - 旗艦完整版</title>
+  
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -12,370 +13,452 @@
       theme: {
         extend: {
           colors: {
-            brand: {
-              50: '#f0f9ff',
-              400: '#38bdf8',
-              500: '#0284c7',
-              600: '#0284c7',
-              900: '#0c4a6e',
+            p1: {
+              light: '#38bdf8',
+              DEFAULT: '#0284c7',
+              dark: '#0369a1',
+              glow: 'rgba(56, 189, 248, 0.6)'
             },
-            player1: '#38bdf8', // Neon Cyan / Dark Marble
-            player2: '#f43f5e', // Neon Rose / Light Marble
+            p2: {
+              light: '#f43f5e',
+              DEFAULT: '#e11d48',
+              dark: '#be123c',
+              glow: 'rgba(244, 63, 94, 0.6)'
+            },
+            takeover: {
+              light: '#fbbf24',
+              DEFAULT: '#f59e0b',
+              dark: '#d97706',
+              glow: 'rgba(245, 158, 11, 0.6)'
+            }
           },
-          boxShadow: {
-            'glow-p1': '0 0 20px rgba(56, 189, 248, 0.6)',
-            'glow-p2': '0 0 20px rgba(244, 63, 94, 0.6)',
-            'glow-gold': '0 0 25px rgba(234, 179, 8, 0.8)',
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans TC', 'sans-serif'],
+          },
+          animation: {
+            'pulse-glow': 'pulseGlow 2s infinite',
+            'spin-slow': 'spin 12s linear infinite',
+            'bounce-short': 'bounceShort 0.5s ease infinite alternate'
           },
           keyframes: {
             pulseGlow: {
-              '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
-              '50%': { opacity: '0.9', transform: 'scale(1.05)' },
+              '0%, 100%': { boxShadow: '0 0 15px rgba(245, 158, 11, 0.4)' },
+              '50%': { boxShadow: '0 0 30px rgba(245, 158, 11, 0.9)' }
             },
-            orbitRotate: {
-              '0%': { transform: 'rotate(0deg)' },
-              '100%': { transform: 'rotate(-360deg)' }
-            },
-            piecePop: {
-              '0%': { transform: 'scale(0.3)', opacity: '0' },
-              '70%': { transform: 'scale(1.15)' },
-              '100%': { transform: 'scale(1)', opacity: '1' }
+            bounceShort: {
+              '0%': { transform: 'translateY(0)' },
+              '100%': { transform: 'translateY(-4px)' }
             }
-          },
-          animation: {
-            'pulse-slow': 'pulseGlow 2.5s infinite ease-in-out',
-            'spin-orbit': 'orbitRotate 12s linear infinite',
-            'piece-pop': 'piecePop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
           }
         }
       }
     }
   </script>
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
 
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
   <style>
     body {
-      font-family: 'Outfit', 'Noto Sans TC', sans-serif;
-      background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 60%, #020617 100%);
+      background: radial-gradient(circle at 50% 20%, #1e293b 0%, #0f172a 60%, #020617 100%);
+      color: #f8fafc;
       min-height: 100vh;
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
       user-select: none;
-      -webkit-user-select: none;
     }
-    
-    /* Board glassmorphism */
-    .glass-panel {
+
+    .glass-card {
       background: rgba(30, 41, 59, 0.7);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    
-    /* Radial rings decoration */
-    .ring-guide {
+
+    .board-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .board-grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .board-grid-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+    /* Concentric ring track overlays */
+    .ring-overlay-outer {
+      border: 2px dashed rgba(56, 189, 248, 0.25);
+      border-radius: 1.25rem;
       pointer-events: none;
-      border: 2px dashed rgba(255, 255, 255, 0.12);
-      border-radius: 50%;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      transition: all 0.3s ease;
+    }
+    
+    .ring-overlay-inner {
+      border: 2px dashed rgba(244, 63, 94, 0.25);
+      border-radius: 0.75rem;
+      pointer-events: none;
     }
 
     /* Marble styling */
     .marble {
       transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: inset -4px -4px 8px rgba(0, 0, 0, 0.6), inset 3px 3px 6px rgba(255, 255, 255, 0.4);
     }
+
     .marble-p1 {
-      background: radial-gradient(circle at 35% 35%, #7dd3fc, #0284c7 60%, #0369a1 100%);
-      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.6);
+      background: radial-gradient(circle at 35% 35%, #38bdf8 0%, #0284c7 60%, #0369a1 100%);
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.6), inset -3px -3px 6px rgba(0, 0, 0, 0.5), inset 3px 3px 6px rgba(255, 255, 255, 0.6);
     }
+
     .marble-p2 {
-      background: radial-gradient(circle at 35% 35%, #fda4af, #e11d48 60%, #9f1239 100%);
-      box-shadow: 0 4px 12px rgba(225, 29, 72, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.6);
+      background: radial-gradient(circle at 35% 35%, #f43f5e 0%, #e11d48 60%, #be123c 100%);
+      box-shadow: 0 0 15px rgba(244, 63, 94, 0.6), inset -3px -3px 6px rgba(0, 0, 0, 0.5), inset 3px 3px 6px rgba(255, 255, 255, 0.6);
     }
 
-    /* Hover preview ghost piece */
-    .ghost-p1 {
-      background: rgba(56, 189, 248, 0.35);
-      border: 2px dashed #38bdf8;
+    .ghost-preview {
+      opacity: 0.45;
+      animation: pulse 1.5s infinite;
     }
-    .ghost-p2 {
-      background: rgba(244, 63, 94, 0.35);
-      border: 2px dashed #f43f5e;
-    }
-    
-    /* Destination preview indicator */
+
     .dest-preview {
-      background: rgba(234, 179, 8, 0.25);
-      border: 2px dotted #eab308;
+      border: 2px dashed #fbbf24;
+      background-color: rgba(251, 191, 36, 0.15);
     }
 
-    /* Winning highlight line */
-    .winning-cell {
-      animation: winGlow 1.2s infinite alternate ease-in-out;
-    }
-    @keyframes winGlow {
-      0% { box-shadow: 0 0 10px #eab308, inset 0 0 15px #fef08a; transform: scale(1.02); }
-      100% { box-shadow: 0 0 25px #eab308, inset 0 0 25px #fef08a; transform: scale(1.08); }
-    }
-
-    /* Custom scrollbar */
+    /* Scrollbar styling */
     ::-webkit-scrollbar {
       width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
     }
     ::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 3px;
+      background: rgba(51, 65, 85, 0.8);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(100, 116, 139, 1);
     }
   </style>
 </head>
-<body class="text-slate-100 flex flex-col items-center justify-between min-h-screen p-2 sm:p-4 overflow-x-hidden">
+<body class="flex flex-col items-center justify-between min-h-screen p-2 sm:p-4 md:p-6 overflow-x-hidden">
 
-  <!-- Navigation Header -->
-  <header class="w-full max-w-4xl flex items-center justify-between px-4 py-3 glass-panel rounded-2xl mb-3 shadow-xl border-slate-700/50">
-    <div class="flex items-center space-x-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-cyan-500/30">
-        <i class="fa-solid font-bold fa-arrows-spin animate-spin-orbit"></i>
+  <!-- TOP HEADER & CONTROLS -->
+  <header class="w-full max-w-5xl glass-card rounded-2xl p-3 sm:p-4 mb-4 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+    <!-- Brand Title -->
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-rose-500 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-cyan-500/20">
+        <i class="fa-solid fa-arrows-spin animate-spin-slow"></i>
       </div>
       <div>
-        <h1 class="font-extrabold text-xl sm:text-2xl tracking-wide bg-gradient-to-r from-cyan-400 via-sky-200 to-indigo-300 bg-clip-text text-transparent">
+        <h1 class="text-lg sm:text-2xl font-black tracking-wide bg-gradient-to-r from-cyan-400 via-sky-200 to-rose-400 bg-clip-text text-transparent">
           Orbito 轉轉棋
         </h1>
-        <p class="text-xs text-slate-400 font-medium">連珠 x 環形公轉策略對決</p>
+        <p class="text-xs text-slate-400 flex items-center gap-2">
+          <span>旗艦完整版</span>
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span class="text-amber-400 font-semibold">⚡ 覆盤自由瀏覽・一鍵隨時接管</span>
+        </p>
       </div>
     </div>
 
-    <!-- Right Controls: Audio & Rules -->
-    <div class="flex items-center space-x-2">
-      <button id="btnSound" title="切換音效" class="w-10 h-10 rounded-xl glass-panel hover:bg-slate-700/60 flex items-center justify-center text-slate-300 hover:text-white transition-all">
-        <i id="soundIcon" class="fa-solid fa-volume-high text-lg"></i>
+    <!-- Mode Selector & Controls -->
+    <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+      <!-- Grid Size Selector -->
+      <div class="flex bg-slate-900/80 p-1 rounded-xl border border-slate-700/60 text-xs sm:text-sm">
+        <button id="size-4-btn" onclick="setGridSize(4)" class="px-2.5 py-1.5 rounded-lg font-bold transition text-cyan-400 bg-slate-800 shadow">4x4</button>
+        <button id="size-5-btn" onclick="setGridSize(5)" class="px-2.5 py-1.5 rounded-lg font-semibold transition text-slate-400 hover:text-white">5x5</button>
+        <button id="size-6-btn" onclick="setGridSize(6)" class="px-2.5 py-1.5 rounded-lg font-semibold transition text-slate-400 hover:text-white">6x6</button>
+      </div>
+
+      <!-- Game Mode Dropdown -->
+      <select id="game-mode-select" onchange="changeGameMode(this.value)" class="bg-slate-900/90 text-slate-200 border border-slate-700 rounded-xl px-3 py-1.5 text-xs sm:text-sm focus:outline-none focus:border-cyan-500 cursor-pointer">
+        <option value="pvp">👥 本地雙人對弈 (PVP)</option>
+        <option value="pve-easy">🤖 人機對決 - 簡單 (Easy AI)</option>
+        <option value="pve-medium" selected>🤖 人機對決 - 中等 (Medium AI)</option>
+        <option value="pve-hard">🧠 人機對決 - 困難 (Hard AI)</option>
+      </select>
+
+      <!-- Sound Toggle -->
+      <button id="sound-toggle-btn" onclick="toggleSound()" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 transition flex items-center justify-center text-sm" title="聲音開關">
+        <i class="fa-solid fa-volume-high"></i>
       </button>
-      <button id="btnRules" title="遊戲規則說明" class="w-10 h-10 rounded-xl glass-panel hover:bg-slate-700/60 flex items-center justify-center text-slate-300 hover:text-white transition-all">
-        <i class="fa-solid fa-circle-question text-lg"></i>
+
+      <!-- Rules Modal Trigger -->
+      <button onclick="openModal('rules-modal')" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-cyan-400 transition flex items-center justify-center text-sm" title="規則說明">
+        <i class="fa-solid fa-circle-question"></i>
+      </button>
+
+      <!-- Reset / New Game -->
+      <button onclick="restartGame()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs sm:text-sm shadow-lg shadow-cyan-600/30 transition flex items-center gap-1.5">
+        <i class="fa-solid fa-rotate-right"></i>
+        <span>新局</span>
       </button>
     </div>
   </header>
 
-  <main class="w-full max-w-4xl flex-1 flex flex-col items-center justify-center gap-4">
+  <!-- MAIN WORKSPACE CONTAINER -->
+  <main class="w-full max-w-5xl flex flex-col lg:flex-row items-center lg:items-start justify-center gap-6 mb-6">
     
-    <!-- Top Configuration Bar (Mode, Size, AI Difficulty) -->
-    <div class="w-full glass-panel rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+    <!-- LEFT: GAME BOARD & ACTIVE STATUS -->
+    <section class="w-full lg:w-[500px] flex flex-col items-center gap-4">
       
-      <!-- Mode Toggle -->
-      <div class="flex items-center bg-slate-900/70 p-1 rounded-xl border border-slate-700/60">
-        <button id="modePvP" class="px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-1.5 bg-cyan-600 text-white shadow-md">
-          <i class="fa-solid fa-user-group text-xs"></i>
-          <span>雙人對戰</span>
+      <!-- Current Status Card -->
+      <div class="w-full glass-card rounded-2xl p-4 flex items-center justify-between border-l-4 transition-all duration-300" id="status-card">
+        <!-- Player 1 Status -->
+        <div class="flex items-center gap-2.5" id="p1-status-box">
+          <div class="w-8 h-8 rounded-full marble-p1 flex items-center justify-center text-white text-xs font-bold">1</div>
+          <div>
+            <div class="text-xs text-slate-400 font-medium" id="p1-label">玩家一</div>
+            <div class="text-sm font-bold text-cyan-400 flex items-center gap-1" id="p1-score">
+              <span>藍棋</span> <span id="p1-count" class="text-xs bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-800">(0)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center Status Message -->
+        <div class="text-center px-2">
+          <div id="status-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-700/50 shadow-inner flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+            <span id="status-text">輪到 玩家一 落子</span>
+          </div>
+          <div id="rotation-indicator" class="text-[10px] text-slate-400 mt-1 hidden">
+            <i class="fa-solid fa-rotate-left text-amber-400 animate-spin"></i> 環形逆時針旋轉中...
+          </div>
+        </div>
+
+        <!-- Player 2 Status -->
+        <div class="flex items-center gap-2.5 text-right" id="p2-status-box">
+          <div>
+            <div class="text-xs text-slate-400 font-medium" id="p2-label">玩家二 / AI</div>
+            <div class="text-sm font-bold text-rose-400 flex items-center gap-1 justify-end" id="p2-score">
+              <span id="p2-count" class="text-xs bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-800">(0)</span> <span>紅棋</span>
+            </div>
+          </div>
+          <div class="w-8 h-8 rounded-full marble-p2 flex items-center justify-center text-white text-xs font-bold">2</div>
+        </div>
+      </div>
+
+      <!-- BOARD WRAPPER -->
+      <div class="relative w-full max-w-[420px] aspect-square glass-card rounded-3xl p-3 sm:p-5 flex items-center justify-center shadow-2xl border border-slate-700/60 overflow-hidden">
+        
+        <!-- Animated Ring Direction Overlay Arrows -->
+        <div class="absolute inset-2 sm:inset-3 ring-overlay-outer pointer-events-none flex items-center justify-center">
+          <i class="fa-solid fa-arrow-left text-cyan-400/20 text-xs sm:text-sm absolute top-1 right-3"></i>
+          <i class="fa-solid fa-arrow-down text-cyan-400/20 text-xs sm:text-sm absolute top-3 left-1"></i>
+          <i class="fa-solid fa-arrow-right text-cyan-400/20 text-xs sm:text-sm absolute bottom-1 left-3"></i>
+          <i class="fa-solid fa-arrow-up text-cyan-400/20 text-xs sm:text-sm absolute bottom-3 right-1"></i>
+        </div>
+
+        <!-- Inner Ring Indicator for 5x5 / 6x6 -->
+        <div id="inner-ring-guide" class="absolute inset-16 sm:inset-20 ring-overlay-inner pointer-events-none hidden"></div>
+
+        <!-- Center Orbito Button Decorative Core -->
+        <div class="absolute inset-0 m-auto w-12 h-12 rounded-full bg-slate-900/90 border border-slate-700 flex items-center justify-center shadow-inner pointer-events-none z-0">
+          <i class="fa-solid fa-arrows-spin text-slate-600 text-lg"></i>
+        </div>
+
+        <!-- Dynamic Grid Container -->
+        <div id="board-grid" class="w-full h-full grid gap-2 sm:gap-3 z-10 relative">
+          <!-- Board Cells dynamically rendered here -->
+        </div>
+
+        <!-- Winning Line Canvas Overlay -->
+        <canvas id="win-line-canvas" class="absolute inset-0 pointer-events-none z-20 w-full h-full"></canvas>
+      </div>
+
+      <!-- Toast Container -->
+      <div id="toast-container" class="w-full flex flex-col items-center gap-2 pointer-events-none"></div>
+    </section>
+
+    <!-- RIGHT: STEP HISTORY & REPLAY DOCK WITH MID-REPLAY TAKEOVER -->
+    <section class="w-full lg:w-[460px] flex flex-col gap-4">
+      
+      <!-- Replay Mode Header Banner -->
+      <div class="glass-card rounded-2xl p-4 border border-slate-700/80 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div id="mode-badge-icon" class="w-8 h-8 rounded-xl bg-slate-800 text-cyan-400 flex items-center justify-center text-sm font-bold border border-slate-700">
+            <i class="fa-solid fa-gamepad"></i>
+          </div>
+          <div>
+            <div id="mode-title" class="text-sm font-bold text-slate-200">實時對弈模式</div>
+            <div id="mode-subtitle" class="text-xs text-slate-400">進入覆盤可自由播放/瀏覽歷史，無需彈窗干擾</div>
+          </div>
+        </div>
+
+        <!-- Toggle Replay Mode Button -->
+        <button id="toggle-replay-btn" onclick="toggleReplayMode()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-cyan-300 font-semibold border border-cyan-800/50 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span id="replay-btn-text">進入覆盤</span>
         </button>
-        <button id="modePvE" class="px-3 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white transition-all flex items-center space-x-1.5">
-          <i class="fa-solid fa-robot text-xs"></i>
-          <span>人機對戰</span>
+      </div>
+
+      <!-- REPLAY CONTROLS & SINGLE-CLICK TAKEOVER DOCK -->
+      <div id="takeover-dock" class="glass-card rounded-2xl p-4 border border-amber-500/40 bg-gradient-to-r from-amber-950/30 via-slate-900/80 to-slate-900/80 flex flex-col gap-3 shadow-xl relative overflow-hidden transition-all duration-300">
+        <!-- Accent Glow -->
+        <div class="absolute -right-10 -top-10 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              覆盤與接管控制面板
+            </span>
+            <span id="replay-step-indicator" class="text-xs text-slate-300 font-semibold">
+              第 <span id="current-step-num" class="text-amber-400 font-bold">0</span> / <span id="total-step-num">0</span> 步
+            </span>
+          </div>
+
+          <!-- Playback Speed Control -->
+          <div class="flex items-center gap-1 text-xs">
+            <span class="text-slate-400 text-[10px]">速度:</span>
+            <select id="speed-select" onchange="changeReplaySpeed(this.value)" class="bg-slate-900 text-amber-300 border border-amber-500/30 rounded px-1.5 py-0.5 text-xs focus:outline-none">
+              <option value="1500">0.75x</option>
+              <option value="1000" selected>1.0x</option>
+              <option value="500">2.0x</option>
+              <option value="250">3.0x</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Timeline Slider -->
+        <div class="w-full flex items-center gap-2">
+          <input type="range" id="replay-slider" min="0" max="0" value="0" oninput="onSliderChange(this.value)" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500">
+        </div>
+
+        <!-- Smooth Step Navigation Controls -->
+        <div class="flex items-center justify-between gap-2 pt-1">
+          <button onclick="firstStep()" class="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-medium transition" title="第一步">
+            <i class="fa-solid fa-backward-step"></i>
+          </button>
+          <button onclick="prevStep()" class="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-medium transition" title="上一步">
+            <i class="fa-solid fa-caret-left"></i>
+          </button>
+          <button id="play-pause-btn" onclick="togglePlayPause()" class="flex-2 px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-400 text-xs font-bold transition flex items-center justify-center gap-1">
+            <i class="fa-solid fa-play" id="play-icon"></i>
+            <span id="play-btn-label">播放</span>
+          </button>
+          <button onclick="nextStep()" class="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-medium transition" title="下一步">
+            <i class="fa-solid fa-caret-right"></i>
+          </button>
+          <button onclick="lastStep()" class="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-medium transition" title="最後一步">
+            <i class="fa-solid fa-forward-step"></i>
+          </button>
+        </div>
+
+        <!-- SINGLE ACTIVE TAKEOVER BUTTON (No Popups required during replay) -->
+        <button id="takeover-btn" onclick="takeoverFromCurrentStep()" class="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/25 transition transform active:scale-95 flex items-center justify-center gap-2 border border-amber-300/40 animate-pulse-glow">
+          <i class="fa-solid fa-bolt text-lg"></i>
+          <span id="takeover-btn-text">🎮 從此步接管對局 (繼續對弈)</span>
         </button>
       </div>
 
-      <!-- AI Difficulty (PvE context) -->
-      <div id="aiDiffGroup" class="hidden items-center space-x-2 bg-slate-900/70 px-3 py-1.5 rounded-xl border border-slate-700/60">
-        <span class="text-xs font-medium text-slate-400">AI 難度:</span>
-        <select id="aiDifficulty" class="bg-transparent text-cyan-400 font-bold focus:outline-none cursor-pointer">
-          <option value="easy" class="bg-slate-900 text-white">簡單 (Easy)</option>
-          <option value="medium" selected class="bg-slate-900 text-white">中等 (Medium)</option>
-          <option value="hard" class="bg-slate-900 text-white">困難 (Hard)</option>
-        </select>
-      </div>
-
-      <!-- Board Size Selector -->
-      <div class="flex items-center space-x-2 bg-slate-900/70 px-3 py-1 rounded-xl border border-slate-700/60">
-        <span class="text-xs font-medium text-slate-400">棋盤:</span>
-        <button data-size="4" class="size-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-600 text-white">4x4</button>
-        <button data-size="5" class="size-btn px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">5x5</button>
-        <button data-size="6" class="size-btn px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white">6x6</button>
-      </div>
-
-      <!-- Auto Rotate Toggle -->
-      <label class="flex items-center space-x-2 cursor-pointer bg-slate-900/70 px-3 py-1.5 rounded-xl border border-slate-700/60 hover:border-slate-500 transition-all">
-        <input type="checkbox" id="chkAutoRotate" checked class="sr-only peer">
-        <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-600 relative"></div>
-        <span class="text-xs font-semibold text-slate-300">落子自動旋轉</span>
-      </label>
-    </div>
-
-    <!-- Status Dashboard -->
-    <div class="w-full flex items-center justify-between px-4 py-3 glass-panel rounded-2xl shadow-lg border-slate-700/40">
-      
-      <!-- Player 1 Status -->
-      <div id="p1Card" class="flex items-center space-x-3 px-3 py-2 rounded-xl transition-all border border-cyan-500/40 bg-cyan-950/40 shadow-glow-p1">
-        <div class="w-7 h-7 sm:w-9 sm:h-9 rounded-full marble-p1 flex items-center justify-center text-xs font-black text-white shadow-md">
-          1
+      <!-- History Log List -->
+      <div class="glass-card rounded-2xl p-4 border border-slate-700/60 flex flex-col flex-1 max-h-[260px] sm:max-h-[320px]">
+        <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-list-ol text-cyan-400"></i> 對局歷程紀錄
+          </h3>
+          <span id="history-count-badge" class="text-[10px] bg-slate-800 px-2 py-0.5 rounded-full text-slate-400 font-mono">0 手</span>
         </div>
-        <div>
-          <div id="p1Name" class="font-bold text-xs sm:text-sm text-cyan-300">玩家 1 (藍)</div>
-          <div id="p1Score" class="text-[10px] sm:text-xs text-slate-400">4 連珠獲勝</div>
+
+        <div id="history-list" class="flex flex-col gap-2 overflow-y-auto pr-1 flex-1">
+          <!-- Empty State -->
+          <div id="empty-history-msg" class="text-center py-8 text-slate-500 text-xs flex flex-col items-center gap-2">
+            <i class="fa-solid fa-chess-board text-2xl text-slate-600"></i>
+            <span>尚無落子紀錄，開始下棋以產生歷史 steps</span>
+          </div>
         </div>
       </div>
 
-      <!-- Center Action Indicator -->
-      <div class="flex flex-col items-center justify-center text-center">
-        <span id="turnMsg" class="text-xs sm:text-sm font-extrabold tracking-wide text-amber-400 animate-pulse">
-          輪到 玩家 1 落子
-        </span>
-        <span id="subMsg" class="text-[10px] sm:text-xs text-slate-400">點擊空白棋格放置棋子</span>
-      </div>
-
-      <!-- Player 2 Status -->
-      <div id="p2Card" class="flex items-center space-x-3 px-3 py-2 rounded-xl transition-all opacity-50 border border-transparent">
-        <div class="w-7 h-7 sm:w-9 sm:h-9 rounded-full marble-p2 flex items-center justify-center text-xs font-black text-white shadow-md">
-          2
-        </div>
-        <div>
-          <div id="p2Name" class="font-bold text-xs sm:text-sm text-rose-300">玩家 2 (紅)</div>
-          <div id="p2Score" class="text-[10px] sm:text-xs text-slate-400">4 連珠獲勝</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Interactive Game Board -->
-    <div class="relative flex items-center justify-center p-3 sm:p-6 glass-panel rounded-3xl shadow-2xl border-slate-700/60 w-full max-w-[500px] aspect-square">
-      
-      <!-- Direction Indicator Arrow Overlay -->
-      <div class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-20">
-        <div class="w-3/4 h-3/4 border-2 border-dashed border-cyan-400 rounded-full animate-spin-orbit"></div>
-        <div class="absolute top-4 left-1/2 -translate-x-1/2 text-cyan-400 text-xs font-bold flex items-center space-x-1 bg-slate-900/80 px-2 py-0.5 rounded-full">
-          <i class="fa-solid fa-arrow-left"></i>
-          <span>逆時針旋轉</span>
-        </div>
-      </div>
-
-      <!-- Dynamic CSS Grid Container -->
-      <div id="boardContainer" class="relative z-10 w-full h-full grid gap-2 sm:gap-3 p-2 bg-slate-950/80 rounded-2xl border border-slate-800 shadow-inner">
-        <!-- Cells generated via JS -->
-      </div>
-    </div>
-
-    <!-- Control Buttons Toolbar -->
-    <div class="w-full flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
-      
-      <!-- UNDO BUTTON (悔棋) -->
-      <button id="btnUndo" disabled class="px-5 py-2.5 rounded-xl font-bold text-sm bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:border-slate-800 disabled:shadow-none text-slate-900 shadow-lg shadow-amber-600/30 transition-all flex items-center space-x-2 border border-amber-400/50 active:scale-95 cursor-pointer disabled:cursor-not-allowed">
-        <i class="fa-solid fa-rotate-left"></i>
-        <span>悔棋 (Undo)</span>
-        <span id="undoBadge" class="ml-1 px-1.5 py-0.5 text-[10px] bg-amber-950/80 text-amber-200 rounded-full font-mono">0</span>
-      </button>
-
-      <!-- ORBIT BUTTON (手動旋轉棋盤) -->
-      <button id="btnOrbit" disabled class="px-6 py-2.5 rounded-xl font-extrabold text-sm bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 disabled:shadow-none text-white shadow-lg shadow-cyan-500/30 transition-all flex items-center space-x-2 border border-cyan-300/40 active:scale-95 cursor-pointer disabled:cursor-not-allowed">
-        <i class="fa-solid fa-arrows-spin"></i>
-        <span>轉動棋盤 (Orbit)</span>
-      </button>
-
-      <!-- NEW GAME BUTTON (重新開始) -->
-      <button id="btnRestart" class="px-5 py-2.5 rounded-xl font-bold text-sm glass-panel hover:bg-slate-700/80 text-slate-200 shadow-lg transition-all flex items-center space-x-2 border border-slate-600 active:scale-95 cursor-pointer">
-        <i class="fa-solid fa-arrows-rotate"></i>
-        <span>重新開始</span>
-      </button>
-    </div>
+    </section>
   </main>
 
-  <footer class="mt-4 mb-1 text-center text-xs text-slate-500">
-    Orbito 轉轉棋 · 環形位移對弈版 &copy; 2026
-  </footer>
-
-  <!-- Rules Modal -->
-  <div id="modalRules" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
-    <div class="glass-panel w-full max-w-lg rounded-3xl p-6 border-slate-700 shadow-2xl flex flex-col max-h-[90vh]">
-      <div class="flex items-center justify-between pb-4 border-b border-slate-700/60 mb-4">
-        <h2 class="text-xl font-extrabold text-cyan-400 flex items-center space-x-2">
-          <i class="fa-solid fa-book-open"></i>
-          <span>Orbito 轉轉棋 玩法規則</span>
-        </h2>
-        <button id="btnCloseRules" class="text-slate-400 hover:text-white text-xl">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
+  <!-- MODAL: GAME OVER VICTORY DIALOG -->
+  <div id="victory-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-card rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-700 shadow-2xl flex flex-col items-center text-center relative overflow-hidden animate-bounce-short">
       
-      <div class="space-y-4 text-sm text-slate-300 overflow-y-auto pr-2">
-        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <h3 class="font-bold text-amber-300 mb-1 flex items-center space-x-1.5">
-            <i class="fa-solid fa-circle-dot"></i>
-            <span>1. 落子 phase</span>
-          </h3>
-          <p>輪到你的回合時，可以在棋盤上任意【空白格子】放入一顆屬於自己顏色的棋子。</p>
-        </div>
-
-        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <h3 class="font-bold text-cyan-300 mb-1 flex items-center space-x-1.5">
-            <i class="fa-solid fa-rotate-left"></i>
-            <span>2. 棋盤公轉 (Orbito Shift)</span>
-          </h3>
-          <p>落子後，點擊「轉動棋盤」按鈕（或開啟自動旋轉），棋盤上【所有同心環上的棋子】都會順著同心環順向**逆時針滑動 1 格**！</p>
-        </div>
-
-        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <h3 class="font-bold text-emerald-300 mb-1 flex items-center space-x-1.5">
-            <i class="fa-solid fa-trophy"></i>
-            <span>3. 勝利條件</span>
-          </h3>
-          <p>在棋盤**旋轉結束後**，率先在橫向、縱向或斜向達成 **4 子連線** 的玩家立即獲得勝利！</p>
-        </div>
-
-        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-          <h3 class="font-bold text-rose-300 mb-1 flex items-center space-x-1.5">
-            <i class="fa-solid fa-reply"></i>
-            <span>4. 悔棋機制 (Undo)</span>
-          </h3>
-          <p>遊戲全程支援悔棋！在人機對戰模式下，悔棋會同時退回玩家與 AI 的上一步；在雙人對戰模式下則退回上一位的回合。遊戲結束後亦可悔棋重試不同策略。</p>
-        </div>
+      <div id="victory-avatar" class="w-20 h-20 rounded-full flex items-center justify-center text-3xl mb-4 shadow-xl border-2">
+        🏆
       </div>
 
-      <div class="mt-6 pt-4 border-t border-slate-700/60 flex justify-end">
-        <button id="btnGotRules" class="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 font-bold text-white shadow-lg shadow-cyan-600/30">
-          我知道了，開始遊戲
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Game Winner Modal -->
-  <div id="modalWin" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
-    <div class="glass-panel w-full max-w-md rounded-3xl p-6 text-center border-amber-500/50 shadow-glow-gold flex flex-col items-center">
-      <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-4xl text-slate-950 shadow-xl mb-4 animate-bounce">
-        <i class="fa-solid fa-crown"></i>
-      </div>
-      
-      <h2 id="winTitle" class="text-2xl font-black text-amber-300 mb-2">
-        玩家 1 獲得勝利！
+      <h2 id="victory-title" class="text-2xl font-black mb-1 bg-gradient-to-r from-cyan-400 to-rose-400 bg-clip-text text-transparent">
+        對局結束！
       </h2>
-      <p id="winDesc" class="text-sm text-slate-300 mb-6">
-        成功在同心環位移後達成 4 子連線！
+      <p id="victory-subtitle" class="text-sm text-slate-300 mb-6">
+        玩家一 成功形成連線贏得勝利！
       </p>
 
-      <div class="flex items-center justify-center gap-3 w-full">
-        <!-- Undo from Win Screen -->
-        <button id="btnModalUndo" class="flex-1 py-3 rounded-xl font-bold bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-lg shadow-amber-600/30 transition-all flex items-center justify-center space-x-2">
-          <i class="fa-solid fa-rotate-left"></i>
-          <span>悔棋重試</span>
+      <div class="w-full bg-slate-900/80 rounded-xl p-3 mb-6 border border-slate-800 flex justify-around text-xs">
+        <div>
+          <div class="text-slate-500">總步數</div>
+          <div id="victory-total-steps" class="font-bold text-slate-200 text-base">14</div>
+        </div>
+        <div class="border-r border-slate-800"></div>
+        <div>
+          <div class="text-slate-500">對戰模式</div>
+          <div id="victory-mode-label" class="font-bold text-slate-200 text-base">人機對決</div>
+        </div>
+      </div>
+
+      <div class="flex flex-col w-full gap-2.5">
+        <button onclick="closeModal('victory-modal'); toggleReplayMode();" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>進入覆盤 / 接管對局</span>
         </button>
-        <!-- Play Again -->
-        <button id="btnModalPlayAgain" class="flex-1 py-3 rounded-xl font-bold bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/30 transition-all flex items-center justify-center space-x-2">
-          <i class="fa-solid fa-play"></i>
+        <button onclick="closeModal('victory-modal'); restartGame();" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm border border-slate-700 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-rotate-right"></i>
           <span>再玩一局</span>
         </button>
       </div>
     </div>
   </div>
 
+  <!-- MODAL: RULES EXPLANATION -->
+  <div id="rules-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-card rounded-3xl p-6 max-w-lg w-full border border-slate-700 shadow-2xl flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-lg font-bold text-cyan-400 flex items-center gap-2">
+          <i class="fa-solid fa-book-open"></i> Orbito 轉轉棋 規則說明
+        </h3>
+        <button onclick="closeModal('rules-modal')" class="text-slate-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+          <h4 class="font-bold text-amber-400 mb-1">1. 核心玩法 (回合流程)</h4>
+          <p>每回合玩家依次執行兩個動作：</p>
+          <ul class="list-disc list-inside mt-1 space-y-1 text-slate-400">
+            <li><strong>落子：</strong>在棋盤任意空格放入一顆己方棋子。</li>
+            <li><strong>旋轉 (Orbito)：</strong>落子後，棋盤上<strong>所有同心環</strong>上的棋子會自動沿<strong>逆時針方向移動 1 格</strong>！</li>
+          </ul>
+        </div>
+
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+          <h4 class="font-bold text-cyan-400 mb-1">2. 勝負判定</h4>
+          <p>當環形旋轉完成後，若有玩家的棋子在橫向、縱向或斜向形成連線（4x4 需 4 連線；5x5 需 5 連線；6x6 需 6 連線），該玩家立即獲勝！</p>
+        </div>
+
+        <div class="bg-amber-950/40 p-3 rounded-xl border border-amber-500/40 text-amber-200">
+          <h4 class="font-bold text-amber-400 mb-1">⚡ 3. 隨時接管對局機制 (Takeover)</h4>
+          <p>在覆盤模式中，您可以流暢地播放或切換任意步數（無任何彈窗打擾）。當看到想重新發揮的歷史步數時，點擊「🎮 從此步接管對局」即可立即切換為實時對弈並繼續下棋！</p>
+        </div>
+      </div>
+
+      <button onclick="closeModal('rules-modal')" class="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-sm transition mt-2">
+        我知道了，開始對弈
+      </button>
+    </div>
+  </div>
+
+  <footer class="text-center text-[11px] text-slate-500 py-2">
+    Orbito 轉轉棋 ⚡ 旗艦完整版 &copy; 2026 | Seamless Replay & Takeover Engine
+  </footer>
+
   <script>
-    /* Sound Synthesizer using Web Audio API */
-    class SoundFx {
+    /* ==========================================================================
+       1. SOUND MANAGER (Web Audio API Synthesizer)
+       ========================================================================== */
+    class SoundEngine {
       constructor() {
         this.ctx = null;
         this.muted = false;
       }
+
       init() {
         if (!this.ctx) {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -383,796 +466,998 @@
             this.ctx = new AudioContext();
           }
         }
-        if (this.ctx && this.ctx.state === 'suspended') {
-          this.ctx.resume();
-        }
       }
+
       playPlace() {
         if (this.muted) return;
         this.init();
         if (!this.ctx) return;
+
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
+
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+        osc.frequency.setValueAtTime(320, this.ctx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.12);
+
         gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+
         osc.connect(gain);
         gain.connect(this.ctx.destination);
+
         osc.start();
         osc.stop(this.ctx.currentTime + 0.12);
       }
+
       playRotate() {
         if (this.muted) return;
         this.init();
         if (!this.ctx) return;
+
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
+
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(200, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.25);
+        osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(380, this.ctx.currentTime + 0.25);
+
         gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+
         osc.connect(gain);
         gain.connect(this.ctx.destination);
+
         osc.start();
         osc.stop(this.ctx.currentTime + 0.25);
       }
-      playUndo() {
-        if (this.muted) return;
-        this.init();
-        if (!this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(500, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.2);
-        gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.2);
-      }
+
       playWin() {
         if (this.muted) return;
         this.init();
         if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+
+        const notes = [523.25, 659.25, 783.99, 1046.50];
         notes.forEach((freq, idx) => {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
+
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, now + idx * 0.1);
-          gain.gain.setValueAtTime(0.3, now + idx * 0.1);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.4);
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.1);
+
+          gain.gain.setValueAtTime(0.3, this.ctx.currentTime + idx * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.1 + 0.4);
+
           osc.connect(gain);
           gain.connect(this.ctx.destination);
-          osc.start(now + idx * 0.1);
-          osc.stop(now + idx * 0.1 + 0.4);
+
+          osc.start(this.ctx.currentTime + idx * 0.1);
+          osc.stop(this.ctx.currentTime + idx * 0.1 + 0.4);
         });
+      }
+
+      playTakeover() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.2);
+
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.25);
+      }
+
+      playClick() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.05);
       }
     }
 
-    const sfx = new SoundFx();
+    const sounds = new SoundEngine();
 
-    /* Orbito Board Engine & State */
-    class OrbitoGame {
-      constructor() {
-        this.boardSize = 4; // Default 4x4
-        this.grid = [];
-        this.currentPlayer = 1; // 1: Player 1 (Blue), 2: Player 2 (Red)
-        this.gameMode = 'pvp'; // 'pvp' or 'pve'
-        this.aiDifficulty = 'medium';
-        this.autoRotate = true;
-        this.gamePhase = 'PLACE'; // 'PLACE', 'ROTATE', 'ANIMATING', 'GAMEOVER'
-        this.winner = null;
-        this.winningCells = [];
-        this.historyStack = []; // History snapshots for UNDO functionality
-        this.hoverCell = null;
-        this.isAiThinking = false;
+    function toggleSound() {
+      sounds.muted = !sounds.muted;
+      const btn = document.getElementById('sound-toggle-btn');
+      btn.innerHTML = sounds.muted 
+        ? '<i class="fa-solid fa-volume-xmark text-rose-400"></i>' 
+        : '<i class="fa-solid fa-volume-high text-slate-300"></i>';
+      showToast(sounds.muted ? '已靜音' : '聲音已開啟', 'info');
+    }
+
+    /* ==========================================================================
+       2. ORBITO BOARD ENGINE & MATHEMATICAL ROTATION ALGORITHMS
+       ========================================================================== */
+    class OrbitoEngine {
+      constructor(size = 4) {
+        this.size = size;
+        this.winLength = size;
+        this.grid = Array(size).fill(null).map(() => Array(size).fill(0));
       }
 
-      init(size = 4, mode = 'pvp', difficulty = 'medium', autoRot = true) {
-        this.boardSize = parseInt(size);
-        this.gameMode = mode;
-        this.aiDifficulty = difficulty;
-        this.autoRotate = autoRot;
-        this.currentPlayer = 1;
-        this.gamePhase = 'PLACE';
-        this.winner = null;
-        this.winningCells = [];
-        this.historyStack = [];
-        this.isAiThinking = false;
-        
-        // Initialize grid (0: empty, 1: player 1, 2: player 2)
-        this.grid = Array.from({ length: this.boardSize }, () => Array(this.boardSize).fill(0));
+      reset() {
+        this.grid = Array(this.size).fill(null).map(() => Array(this.size).fill(0));
       }
 
-      // Save snapshot to history stack for UNDO
-      saveSnapshot() {
-        const state = {
-          grid: this.grid.map(row => [...row]),
-          currentPlayer: this.currentPlayer,
-          gamePhase: this.gamePhase,
-          winner: this.winner,
-          winningCells: [...this.winningCells]
-        };
-        this.historyStack.push(JSON.stringify(state));
+      setGrid(gridCopy) {
+        this.grid = gridCopy.map(row => [...row]);
       }
 
-      // Undo functionality
-      undo() {
-        if (this.historyStack.length === 0 || this.isAiThinking) return false;
+      getGridCopy() {
+        return this.grid.map(row => [...row]);
+      }
 
-        sfx.playUndo();
+      /**
+       * Calculates destination coordinate for cell (r, c) under Counter-Clockwise (CCW) shift.
+       */
+      static getCCWNextPos(r, c, N) {
+        const k = Math.min(r, c, N - 1 - r, N - 1 - c);
+        const minC = k;
+        const maxC = N - 1 - k;
 
-        if (this.gameMode === 'pve') {
-          // In PvE mode, undo should revert both AI's move and player's move if possible
-          // If game is over after AI move, or during player turn, revert back to start of player's previous turn.
-          if (this.historyStack.length >= 2) {
-            this.historyStack.pop(); // Pop AI turn snapshot
-            const prev = JSON.parse(this.historyStack.pop()); // Pop Player turn snapshot
-            this.restoreState(prev);
-          } else {
-            // Only 1 snapshot exists
-            const prev = JSON.parse(this.historyStack.pop());
-            this.restoreState(prev);
-          }
-        } else {
-          // PvP mode: undo 1 step
-          const prev = JSON.parse(this.historyStack.pop());
-          this.restoreState(prev);
+        if (minC === maxC) {
+          return { r, c };
         }
-        return true;
+
+        if (r === minC && c > minC) return { r, c: c - 1 };
+        if (c === minC && r < maxC) return { r: r + 1, c };
+        if (r === maxC && c < maxC) return { r, c: c + 1 };
+        if (c === maxC && r > minC) return { r: r - 1, c };
+
+        return { r, c };
       }
 
-      restoreState(state) {
-        this.grid = state.grid.map(row => [...row]);
-        this.currentPlayer = state.currentPlayer;
-        this.gamePhase = state.gamePhase;
-        this.winner = state.winner;
-        this.winningCells = state.winningCells ? [...state.winningCells] : [];
-      }
+      rotateCCW(boardToRotate = this.grid) {
+        const N = this.size;
+        const nextBoard = Array(N).fill(null).map(() => Array(N).fill(0));
 
-      // Counter-clockwise Concentric Ring Coordinates Generator
-      getConcentricRings() {
-        const rings = [];
-        const numRings = Math.floor(this.boardSize / 2);
-
-        for (let r = 0; r < numRings; r++) {
-          const ringCoords = [];
-          const min = r;
-          const max = this.boardSize - 1 - r;
-
-          if (min === max) {
-            ringCoords.push({ r: min, c: min });
-          } else {
-            // Top edge (right to left)
-            for (let c = max; c > min; c--) ringCoords.push({ r: min, c });
-            // Left edge (top to bottom)
-            for (let row = min; row < max; row++) ringCoords.push({ r: row, c: min });
-            // Bottom edge (left to right)
-            for (let c = min; c < max; c++) ringCoords.push({ r: max, c });
-            // Right edge (bottom to top)
-            for (let row = max; row > min; row--) ringCoords.push({ r: row, c: max });
-          }
-          rings.push(ringCoords);
-        }
-        return rings;
-      }
-
-      // Calculate destination cell for any position after 1 step CCW rotation
-      getRotatedDestination(r, c) {
-        const rings = this.getConcentricRings();
-        for (const ring of rings) {
-          const idx = ring.findIndex(cell => cell.r === r && cell.c === c);
-          if (idx !== -1) {
-            const nextIdx = (idx + 1) % ring.length;
-            return ring[nextIdx];
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < N; c++) {
+            const val = boardToRotate[r][c];
+            if (val !== 0) {
+              const dest = OrbitoEngine.getCCWNextPos(r, c, N);
+              nextBoard[dest.r][dest.c] = val;
+            }
           }
         }
-        return { r, c }; // Center cell in odd sized grids stays stationary
+        return nextBoard;
       }
 
-      // Execute Ring Rotation on grid matrix
-      rotateBoard() {
-        const newGrid = Array.from({ length: this.boardSize }, () => Array(this.boardSize).fill(0));
-        const rings = this.getConcentricRings();
-
-        for (const ring of rings) {
-          const len = ring.length;
-          for (let i = 0; i < len; i++) {
-            const curr = ring[i];
-            const next = ring[(i + 1) % len];
-            newGrid[next.r][next.c] = this.grid[curr.r][curr.c];
-          }
-        }
-
-        // Preserve center cell if boardSize is odd (e.g., 5x5)
-        if (this.boardSize % 2 !== 0) {
-          const center = Math.floor(this.boardSize / 2);
-          newGrid[center][center] = this.grid[center][center];
-        }
-
-        this.grid = newGrid;
-      }
-
-      // Place marble at (r, c)
-      placePiece(r, c) {
-        if (this.gamePhase !== 'PLACE' || this.grid[r][c] !== 0) return false;
-
-        this.saveSnapshot();
-        this.grid[r][c] = this.currentPlayer;
-        sfx.playPlace();
-
-        if (this.autoRotate) {
-          this.gamePhase = 'ROTATE';
-        } else {
-          this.gamePhase = 'ROTATE';
-        }
-        return true;
-      }
-
-      // Check 4-in-a-row Win condition across rows, cols, diagonals
-      checkWin() {
-        const targetLen = 4; // Standard Orbito 4-in-a-row
-        const lines = [];
-
-        // Rows
-        for (let r = 0; r < this.boardSize; r++) {
-          for (let c = 0; c <= this.boardSize - targetLen; c++) {
-            lines.push(Array.from({ length: targetLen }, (_, i) => ({ r, c: c + i })));
-          }
-        }
-        // Cols
-        for (let c = 0; c < this.boardSize; c++) {
-          for (let r = 0; r <= this.boardSize - targetLen; r++) {
-            lines.push(Array.from({ length: targetLen }, (_, i) => ({ r: r + i, c })));
-          }
-        }
-        // Diagonals (Top-Left to Bottom-Right)
-        for (let r = 0; r <= this.boardSize - targetLen; r++) {
-          for (let c = 0; c <= this.boardSize - targetLen; c++) {
-            lines.push(Array.from({ length: targetLen }, (_, i) => ({ r: r + i, c: c + i })));
-          }
-        }
-        // Diagonals (Top-Right to Bottom-Left)
-        for (let r = 0; r <= this.boardSize - targetLen; r++) {
-          for (let c = targetLen - 1; c < this.boardSize; c++) {
-            lines.push(Array.from({ length: targetLen }, (_, i) => ({ r: r + i, c: c - i })));
-          }
-        }
-
+      checkWin(grid = this.grid) {
+        const N = this.size;
+        const target = this.winLength;
         let p1Win = false;
         let p2Win = false;
-        let p1Cells = [];
-        let p2Cells = [];
+        let winningLines = [];
 
-        for (const line of lines) {
-          const first = this.grid[line[0].r][line[0].c];
-          if (first !== 0 && line.every(cell => this.grid[cell.r][cell.c] === first)) {
-            if (first === 1) {
-              p1Win = true;
-              p1Cells.push(...line);
-            } else if (first === 2) {
-              p2Win = true;
-              p2Cells.push(...line);
+        const directions = [
+          { dr: 0, dc: 1 },
+          { dr: 1, dc: 0 },
+          { dr: 1, dc: 1 },
+          { dr: 1, dc: -1 }
+        ];
+
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < N; c++) {
+            const player = grid[r][c];
+            if (player === 0) continue;
+
+            for (const { dr, dc } of directions) {
+              let count = 0;
+              let lineCells = [];
+
+              for (let step = 0; step < target; step++) {
+                const nr = r + dr * step;
+                const nc = c + dc * step;
+
+                if (nr >= 0 && nr < N && nc >= 0 && nc < N && grid[nr][nc] === player) {
+                  count++;
+                  lineCells.push([nr, nc]);
+                } else {
+                  break;
+                }
+              }
+
+              if (count === target) {
+                if (player === 1) p1Win = true;
+                if (player === 2) p2Win = true;
+                winningLines.push({ player, cells: lineCells });
+              }
             }
           }
         }
 
-        if (p1Win && p2Win) {
-          // If both get 4-in-a-row, current active player wins by Orbito priority rule
-          this.winner = this.currentPlayer;
-          this.winningCells = this.currentPlayer === 1 ? p1Cells : p2Cells;
-          this.gamePhase = 'GAMEOVER';
-          return this.winner;
-        } else if (p1Win) {
-          this.winner = 1;
-          this.winningCells = p1Cells;
-          this.gamePhase = 'GAMEOVER';
-          return 1;
-        } else if (p2Win) {
-          this.winner = 2;
-          this.winningCells = p2Cells;
-          this.gamePhase = 'GAMEOVER';
-          return 2;
-        }
-
-        // Check Draw (Board full)
         let isFull = true;
-        for (let r = 0; r < this.boardSize; r++) {
-          for (let c = 0; c < this.boardSize; c++) {
-            if (this.grid[r][c] === 0) { isFull = false; break; }
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < N; c++) {
+            if (grid[r][c] === 0) { isFull = false; break; }
           }
         }
-        if (isFull) {
-          this.winner = 'DRAW';
-          this.gamePhase = 'GAMEOVER';
-          return 'DRAW';
-        }
 
-        return null;
+        if (p1Win && p2Win) return { winner: 3, lines: winningLines };
+        if (p1Win) return { winner: 1, lines: winningLines };
+        if (p2Win) return { winner: 2, lines: winningLines };
+        if (isFull) return { winner: 3, lines: [] };
+
+        return { winner: 0, lines: [] };
       }
 
-      // Switch turn
-      nextTurn() {
-        this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
-        this.gamePhase = 'PLACE';
-      }
+      getHoverPreview(r, c, player) {
+        if (this.grid[r][c] !== 0) return null;
 
-      // AI Move Selection (Easy, Medium, Hard)
-      getAiMove() {
+        const N = this.size;
+        const dest = OrbitoEngine.getCCWNextPos(r, c, N);
+
+        const tempBoard = this.getGridCopy();
+        tempBoard[r][c] = player;
+        const rotatedTemp = this.rotateCCW(tempBoard);
+
+        const winResult = this.checkWin(rotatedTemp);
+        const willWin = (winResult.winner === player);
+
+        return {
+          placed: { r, c },
+          dest: dest,
+          willWin: willWin
+        };
+      }
+    }
+
+    /* ==========================================================================
+       3. AI PLAYER LOGIC (Easy, Medium, Hard)
+       ========================================================================== */
+    class AIPlayer {
+      static chooseMove(engine, aiPlayer, difficulty) {
+        const N = engine.size;
         const emptyCells = [];
-        for (let r = 0; r < this.boardSize; r++) {
-          for (let c = 0; c < this.boardSize; c++) {
-            if (this.grid[r][c] === 0) emptyCells.push({ r, c });
+
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < N; c++) {
+            if (engine.grid[r][c] === 0) {
+              emptyCells.push({ r, c });
+            }
           }
         }
 
         if (emptyCells.length === 0) return null;
 
-        if (this.aiDifficulty === 'easy') {
+        const opponent = aiPlayer === 1 ? 2 : 1;
+
+        if (difficulty === 'pve-easy') {
           return emptyCells[Math.floor(Math.random() * emptyCells.length)];
         }
 
-        // Medium & Hard AI: Check winning/blocking moves after rotation
-        let bestMove = null;
-        let maxScore = -Infinity;
-
-        for (const cell of emptyCells) {
-          let score = 0;
-          
-          // Test AI Placement (Player 2)
-          const simGrid = this.grid.map(row => [...row]);
-          simGrid[cell.r][cell.c] = 2;
-
-          // Simulate Rotation
-          const rotatedGrid = this.simulateRotationOn(simGrid);
-
-          // Evaluate score
-          if (this.checkWinOnGrid(rotatedGrid, 2)) {
-            score += 10000; // Immediate win for AI
-          }
-
-          // Check if blocking human player (Player 1) immediate win
-          const simHumanGrid = this.grid.map(row => [...row]);
-          simHumanGrid[cell.r][cell.c] = 1;
-          const rotatedHuman = this.simulateRotationOn(simHumanGrid);
-          if (this.checkWinOnGrid(rotatedHuman, 1)) {
-            score += 5000; // Block human win
-          }
-
-          if (this.aiDifficulty === 'hard') {
-            // Favor center/inner ring positions
-            const center = (this.boardSize - 1) / 2;
-            const distFromCenter = Math.abs(cell.r - center) + Math.abs(cell.c - center);
-            score += (10 - distFromCenter);
-          }
-
-          // Add slight randomness to avoid predictable AI
-          score += Math.random() * 10;
-
-          if (score > maxScore) {
-            maxScore = score;
-            bestMove = cell;
+        // 1. Immediate Win Check
+        for (const pos of emptyCells) {
+          const preview = engine.getHoverPreview(pos.r, pos.c, aiPlayer);
+          if (preview && preview.willWin) {
+            return pos;
           }
         }
 
-        return bestMove || emptyCells[Math.floor(Math.random() * emptyCells.length)];
+        // 2. Block Opponent Win
+        for (const pos of emptyCells) {
+          const preview = engine.getHoverPreview(pos.r, pos.c, opponent);
+          if (preview && preview.willWin) {
+            return pos;
+          }
+        }
+
+        if (difficulty === 'pve-medium') {
+          emptyCells.sort((a, b) => {
+            const distA = Math.abs(a.r - (N - 1) / 2) + Math.abs(a.c - (N - 1) / 2);
+            const distB = Math.abs(b.r - (N - 1) / 2) + Math.abs(b.c - (N - 1) / 2);
+            return distA - distB;
+          });
+          return emptyCells[0];
+        }
+
+        // Hard AI Evaluation
+        let bestScore = -Infinity;
+        let bestMove = emptyCells[0];
+
+        for (const pos of emptyCells) {
+          const tempBoard = engine.getGridCopy();
+          tempBoard[pos.r][pos.c] = aiPlayer;
+          const rotated = engine.rotateCCW(tempBoard);
+
+          const score = AIPlayer.evaluateBoard(rotated, N, engine.winLength, aiPlayer, opponent);
+          if (score > bestScore) {
+            bestScore = score;
+            bestMove = pos;
+          }
+        }
+
+        return bestMove;
       }
 
-      simulateRotationOn(gridMatrix) {
-        const newGrid = Array.from({ length: this.boardSize }, () => Array(this.boardSize).fill(0));
-        const rings = this.getConcentricRings();
-        for (const ring of rings) {
-          const len = ring.length;
-          for (let i = 0; i < len; i++) {
-            const curr = ring[i];
-            const next = ring[(i + 1) % len];
-            newGrid[next.r][next.c] = gridMatrix[curr.r][curr.c];
-          }
-        }
-        if (this.boardSize % 2 !== 0) {
-          const center = Math.floor(this.boardSize / 2);
-          newGrid[center][center] = gridMatrix[center][center];
-        }
-        return newGrid;
-      }
+      static evaluateBoard(board, N, winLen, ai, opp) {
+        let score = 0;
 
-      checkWinOnGrid(gridMatrix, player) {
-        const targetLen = 4;
-        // Check rows, cols, diagonals for target length
-        for (let r = 0; r < this.boardSize; r++) {
-          for (let c = 0; c <= this.boardSize - targetLen; c++) {
-            if (Array.from({ length: targetLen }, (_, i) => gridMatrix[r][c + i]).every(v => v === player)) return true;
+        const evaluateLine = (player, count) => {
+          if (count === winLen) return 10000;
+          if (count === winLen - 1) return 150;
+          if (count === winLen - 2) return 20;
+          return count * 2;
+        };
+
+        const directions = [
+          { dr: 0, dc: 1 }, { dr: 1, dc: 0 },
+          { dr: 1, dc: 1 }, { dr: 1, dc: -1 }
+        ];
+
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < N; c++) {
+            for (const { dr, dc } of directions) {
+              let aiCount = 0;
+              let oppCount = 0;
+
+              for (let step = 0; step < winLen; step++) {
+                const nr = r + dr * step;
+                const nc = c + dc * step;
+                if (nr >= 0 && nr < N && nc >= 0 && nc < N) {
+                  if (board[nr][nc] === ai) aiCount++;
+                  if (board[nr][nc] === opp) oppCount++;
+                } else {
+                  aiCount = -1; oppCount = -1; break;
+                }
+              }
+
+              if (aiCount > 0 && oppCount === 0) score += evaluateLine(ai, aiCount);
+              if (oppCount > 0 && aiCount === 0) score -= evaluateLine(opp, oppCount) * 1.2;
+            }
           }
         }
-        for (let c = 0; c < this.boardSize; c++) {
-          for (let r = 0; r <= this.boardSize - targetLen; r++) {
-            if (Array.from({ length: targetLen }, (_, i) => gridMatrix[r + i][c]).every(v => v === player)) return true;
-          }
-        }
-        for (let r = 0; r <= this.boardSize - targetLen; r++) {
-          for (let c = 0; c <= this.boardSize - targetLen; c++) {
-            if (Array.from({ length: targetLen }, (_, i) => gridMatrix[r + i][c + i]).every(v => v === player)) return true;
-          }
-        }
-        for (let r = 0; r <= this.boardSize - targetLen; r++) {
-          for (let c = targetLen - 1; c < this.boardSize; c++) {
-            if (Array.from({ length: targetLen }, (_, i) => gridMatrix[r + i][c - i]).every(v => v === player)) return true;
-          }
-        }
-        return false;
+
+        return score;
       }
     }
 
-    /* UI Controller & Event Handlers */
-    const game = new OrbitoGame();
+    /* ==========================================================================
+       4. GAME STATE & REPLAY/TAKEOVER SYSTEM MANAGER
+       ========================================================================== */
+    let gridSize = 4;
+    let gameMode = 'pve-medium';
+    let engine = new OrbitoEngine(gridSize);
+    let currentPlayer = 1;
+    let isGameOver = false;
+    let isAnimating = false;
 
-    // DOM Elements
-    const boardContainer = document.getElementById('boardContainer');
-    const turnMsg = document.getElementById('turnMsg');
-    const subMsg = document.getElementById('subMsg');
-    const p1Card = document.getElementById('p1Card');
-    const p2Card = document.getElementById('p2Card');
-    const p1Name = document.getElementById('p1Name');
-    const p2Name = document.getElementById('p2Name');
-    const btnUndo = document.getElementById('btnUndo');
-    const undoBadge = document.getElementById('undoBadge');
-    const btnOrbit = document.getElementById('btnOrbit');
-    const btnRestart = document.getElementById('btnRestart');
-    const modePvP = document.getElementById('modePvP');
-    const modePvE = document.getElementById('modePvE');
-    const aiDiffGroup = document.getElementById('aiDiffGroup');
-    const aiDifficulty = document.getElementById('aiDifficulty');
-    const chkAutoRotate = document.getElementById('chkAutoRotate');
-    const modalRules = document.getElementById('modalRules');
-    const modalWin = document.getElementById('modalWin');
-    const btnSound = document.getElementById('btnSound');
-    const soundIcon = document.getElementById('soundIcon');
-    const winTitle = document.getElementById('winTitle');
-    const winDesc = document.getElementById('winDesc');
+    let gameHistory = [];
+    let replayIndex = 0;
+    let isReplayMode = false;
+    let replayTimer = null;
+    let replaySpeed = 1000;
 
-    // Initialize UI
-    function initGame() {
-      const activeSizeBtn = document.querySelector('.size-btn.bg-indigo-600');
-      const size = activeSizeBtn ? activeSizeBtn.dataset.size : 4;
-      const mode = modePvE.classList.contains('bg-cyan-600') ? 'pve' : 'pvp';
-      const diff = aiDifficulty.value;
-      const autoRot = chkAutoRotate.checked;
+    function createInitialHistoryEntry() {
+      return {
+        stepNumber: 0,
+        player: 1,
+        placedPos: null,
+        boardBefore: engine.getGridCopy(),
+        boardAfterRotate: engine.getGridCopy(),
+        nextPlayer: 1,
+        desc: "對局開始 (Initial Board)"
+      };
+    }
 
-      game.init(size, mode, diff, autoRot);
+    /**
+     * CORE FEATURE: TAKEOVER FROM CURRENT REPLAY STEP
+     * Single button triggered, no popups during playback!
+     */
+    function takeoverFromCurrentStep() {
+      sounds.playTakeover();
+
+      if (gameHistory.length === 0) {
+        showToast("棋局未開始，無歷史可接管", "info");
+        return;
+      }
+
+      pauseReplay();
+
+      const targetStep = gameHistory[replayIndex];
+      if (!targetStep) return;
+
+      // 1. Truncate history at current replay index
+      gameHistory = gameHistory.slice(0, replayIndex + 1);
+
+      // 2. Restore engine state
+      engine.setGrid(targetStep.boardAfterRotate);
+
+      // 3. Update player turn
+      currentPlayer = targetStep.nextPlayer;
+
+      // 4. Reset flags
+      isGameOver = false;
+
+      // 5. Exit Replay Mode back to Live Mode
+      isReplayMode = false;
+
+      // 6. UI Updates
+      clearWinningCanvas();
+      updateHistoryUI();
       renderBoard();
-      updateStatus();
+      updateStatusUI();
+      updateReplayControlsUI();
+
+      const playerLabel = currentPlayer === 1 ? "玩家一 (藍棋)" : (gameMode.startsWith('pve') ? "AI (紅棋)" : "玩家二 (紅棋)");
+      showToast(`⚡ 已成功從第 ${replayIndex} 步接管對局！請 ${playerLabel} 開始落子`, "success");
+
+      // 7. If PVE mode and it's AI's turn, trigger AI automatically!
+      if (gameMode.startsWith('pve') && currentPlayer === 2 && !isGameOver) {
+        setTimeout(triggerAIMove, 600);
+      }
     }
 
-    // Render Grid UI
+    /* ==========================================================================
+       5. UI RENDERING & BOARD ANIMATIONS
+       ========================================================================== */
     function renderBoard() {
-      boardContainer.innerHTML = '';
-      boardContainer.style.gridTemplateColumns = `repeat(${game.boardSize}, minmax(0, 1fr))`;
-      boardContainer.style.gridTemplateRows = `repeat(${game.boardSize}, minmax(0, 1fr))`;
+      const gridEl = document.getElementById('board-grid');
+      gridEl.innerHTML = '';
 
-      for (let r = 0; r < game.boardSize; r++) {
-        for (let c = 0; c < game.boardSize; c++) {
-          const cellBtn = document.createElement('button');
-          cellBtn.className = `relative rounded-xl glass-panel flex items-center justify-center transition-all duration-200 border border-slate-700/50 hover:border-slate-500 overflow-hidden group cursor-pointer`;
-          cellBtn.dataset.r = r;
-          cellBtn.dataset.c = c;
+      gridEl.className = `w-full h-full grid gap-2 sm:gap-3 z-10 relative board-grid-${engine.size}`;
 
-          const val = game.grid[r][c];
-          const isWinning = game.winningCells.some(cell => cell.r === r && cell.c === c);
+      const innerGuide = document.getElementById('inner-ring-guide');
+      if (engine.size >= 5) {
+        innerGuide.classList.remove('hidden');
+      } else {
+        innerGuide.classList.add('hidden');
+      }
 
-          if (isWinning) {
-            cellBtn.classList.add('winning-cell', 'border-amber-400');
+      const activeBoard = isReplayMode 
+        ? gameHistory[replayIndex].boardAfterRotate 
+        : engine.grid;
+
+      for (let r = 0; r < engine.size; r++) {
+        for (let c = 0; c < engine.size; c++) {
+          const val = activeBoard[r][c];
+
+          const cell = document.createElement('div');
+          cell.dataset.row = r;
+          cell.dataset.col = c;
+          cell.className = `relative rounded-2xl bg-slate-900/90 border border-slate-700/80 flex items-center justify-center cursor-pointer transition-all duration-200 hover:border-cyan-400/60 overflow-hidden group`;
+
+          const coord = document.createElement('span');
+          coord.className = 'absolute top-1 left-1.5 text-[9px] text-slate-600 font-mono pointer-events-none';
+          coord.innerText = `${r},${c}`;
+          cell.appendChild(coord);
+
+          if (val !== 0) {
+            const marble = document.createElement('div');
+            marble.className = `w-[72%] h-[72%] rounded-full marble ${val === 1 ? 'marble-p1' : 'marble-p2'}`;
+            cell.appendChild(marble);
+          } else if (!isReplayMode && !isGameOver && !isAnimating) {
+            cell.addEventListener('mouseenter', () => onCellHover(r, c, cell));
+            cell.addEventListener('mouseleave', () => onCellHoverLeave(cell));
+            cell.addEventListener('click', () => handleCellClick(r, c));
           }
 
-          if (val === 1) {
-            const marble = document.createElement('div');
-            marble.className = `w-4/5 h-4/5 rounded-full marble marble-p1 animate-piece-pop`;
-            cellBtn.appendChild(marble);
-          } else if (val === 2) {
-            const marble = document.createElement('div');
-            marble.className = `w-4/5 h-4/5 rounded-full marble marble-p2 animate-piece-pop`;
-            cellBtn.appendChild(marble);
-          } else {
-            // Empty Cell Hover Event Setup
-            cellBtn.addEventListener('mouseenter', () => handleCellHover(r, c));
-            cellBtn.addEventListener('mouseleave', handleCellLeave);
-            cellBtn.addEventListener('click', () => handleCellClick(r, c));
-          }
-
-          boardContainer.appendChild(cellBtn);
+          gridEl.appendChild(cell);
         }
       }
 
-      // If hover preview active
-      if (game.hoverCell && game.gamePhase === 'PLACE' && !game.isAiThinking) {
-        renderHoverPreview(game.hoverCell.r, game.hoverCell.c);
+      updatePieceCounts(activeBoard);
+    }
+
+    function updatePieceCounts(board) {
+      let p1 = 0, p2 = 0;
+      for (let r = 0; r < engine.size; r++) {
+        for (let c = 0; c < engine.size; c++) {
+          if (board[r][c] === 1) p1++;
+          if (board[r][c] === 2) p2++;
+        }
       }
+      document.getElementById('p1-count').innerText = `(${p1})`;
+      document.getElementById('p2-count').innerText = `(${p2})`;
     }
 
-    // Handle Hover Preview: Ghost Piece + Rotation Destination Indicator
-    function handleCellHover(r, c) {
-      if (game.gamePhase !== 'PLACE' || game.isAiThinking || (game.gameMode === 'pve' && game.currentPlayer === 2)) return;
-      game.hoverCell = { r, c };
-      renderBoardHoverEffects(r, c);
-    }
+    function onCellHover(r, c, cell) {
+      if (isReplayMode || isGameOver || isAnimating) return;
+      if (gameMode.startsWith('pve') && currentPlayer === 2) return;
 
-    function handleCellLeave() {
-      game.hoverCell = null;
-      clearHoverEffects();
-    }
+      const preview = engine.getHoverPreview(r, c, currentPlayer);
+      if (!preview) return;
 
-    function renderBoardHoverEffects(r, c) {
-      clearHoverEffects();
-      const cellBtn = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
-      if (cellBtn && game.grid[r][c] === 0) {
-        // Ghost Marble Preview
-        const ghost = document.createElement('div');
-        ghost.id = 'ghostPiece';
-        ghost.className = `w-4/5 h-4/5 rounded-full ${game.currentPlayer === 1 ? 'ghost-p1' : 'ghost-p2'} animate-pulse`;
-        cellBtn.appendChild(ghost);
+      const ghost = document.createElement('div');
+      ghost.id = 'hover-ghost';
+      ghost.className = `w-[70%] h-[70%] rounded-full marble ${currentPlayer === 1 ? 'marble-p1' : 'marble-p2'} ghost-preview pointer-events-none`;
+      cell.appendChild(ghost);
 
-        // Calculate and highlight destination cell after rotation
-        const dest = game.getRotatedDestination(r, c);
-        const destBtn = document.querySelector(`[data-r="${dest.r}"][data-c="${dest.c}"]`);
-        if (destBtn) {
-          const destHighlight = document.createElement('div');
-          destHighlight.id = 'destHighlight';
-          destHighlight.className = 'absolute inset-0 dest-preview rounded-xl flex items-center justify-center pointer-events-none';
-          destHighlight.innerHTML = `<i class="fa-solid fa-arrow-turn-down text-amber-300 text-xs opacity-80 rotate-90"></i>`;
-          destBtn.appendChild(destHighlight);
+      const destCell = document.querySelector(`[data-row="${preview.dest.r}"][data-col="${preview.dest.c}"]`);
+      if (destCell) {
+        destCell.classList.add('dest-preview');
+
+        const destIcon = document.createElement('i');
+        destIcon.id = 'hover-dest-icon';
+        destIcon.className = 'fa-solid fa-arrows-spin text-amber-400 animate-spin text-xs absolute bottom-1 right-1 pointer-events-none';
+        destCell.appendChild(destIcon);
+
+        if (preview.willWin) {
+          destCell.classList.add('ring-2', 'ring-amber-400', 'bg-amber-500/20');
+          const winTag = document.createElement('span');
+          winTag.id = 'hover-win-tag';
+          winTag.className = 'absolute text-[10px] font-bold bg-amber-500 text-slate-950 px-1 rounded shadow -top-1 pointer-events-none animate-bounce';
+          winTag.innerText = '🎉 必勝!';
+          destCell.appendChild(winTag);
         }
       }
     }
 
-    function clearHoverEffects() {
-      const g = document.getElementById('ghostPiece');
-      if (g) g.remove();
-      const d = document.getElementById('destHighlight');
-      if (d) d.remove();
+    function onCellHoverLeave(cell) {
+      const ghost = document.getElementById('hover-ghost');
+      if (ghost) ghost.remove();
+
+      document.querySelectorAll('.dest-preview').forEach(el => el.classList.remove('dest-preview', 'ring-2', 'ring-amber-400', 'bg-amber-500/20'));
+      const destIcon = document.getElementById('hover-dest-icon');
+      if (destIcon) destIcon.remove();
+      const winTag = document.getElementById('hover-win-tag');
+      if (winTag) winTag.remove();
     }
 
-    // Handle Cell Click (Place Piece)
+    /* ==========================================================================
+       6. GAMEPLAY FLOW & ROTATION ANIMATION CONTROLLER
+       ========================================================================== */
     function handleCellClick(r, c) {
-      if (game.gamePhase !== 'PLACE' || game.isAiThinking) return;
-      if (game.gameMode === 'pve' && game.currentPlayer === 2) return;
+      if (isGameOver || isAnimating || isReplayMode) return;
+      if (gameMode.startsWith('pve') && currentPlayer === 2) return;
 
-      clearHoverEffects();
-      const placed = game.placePiece(r, c);
-      if (!placed) return;
-
-      renderBoard();
-      updateStatus();
-
-      if (game.autoRotate) {
-        setTimeout(() => {
-          executeRotationSequence();
-        }, 350);
-      }
+      executeMove(r, c);
     }
 
-    // Handle Rotation Execution
-    function executeRotationSequence() {
-      if (game.gamePhase !== 'ROTATE' && game.gamePhase !== 'PLACE') return;
+    function executeMove(r, c) {
+      if (engine.grid[r][c] !== 0) return;
 
-      game.gamePhase = 'ANIMATING';
-      sfx.playRotate();
-      updateStatus();
+      isAnimating = true;
+      sounds.playPlace();
 
-      // Add rotation animation class to board
-      boardContainer.classList.add('transition-transform', 'duration-500', '-rotate-90');
+      const pPos = { r, c };
+      const boardBefore = engine.getGridCopy();
+
+      engine.grid[r][c] = currentPlayer;
+      renderBoard();
+
+      document.getElementById('rotation-indicator').classList.remove('hidden');
 
       setTimeout(() => {
-        boardContainer.classList.remove('transition-transform', 'duration-500', '-rotate-90');
-        game.rotateBoard();
+        sounds.playRotate();
+        const rotatedGrid = engine.rotateCCW(engine.grid);
+        engine.setGrid(rotatedGrid);
 
-        const winResult = game.checkWin();
-        renderBoard();
+        document.getElementById('rotation-indicator').classList.add('hidden');
 
-        if (winResult) {
-          sfx.playWin();
-          updateStatus();
-          showWinModal();
-        } else {
-          game.nextTurn();
-          updateStatus();
-          triggerAiIfNeeded();
-        }
-      }, 500);
-    }
+        const winResult = engine.checkWin();
+        const nextPlayer = currentPlayer === 1 ? 2 : 1;
 
-    // Trigger AI turn in PvE mode
-    function triggerAiIfNeeded() {
-      if (game.gameMode === 'pve' && game.currentPlayer === 2 && game.gamePhase === 'PLACE' && !game.winner) {
-        game.isAiThinking = true;
-        updateStatus();
-
-        setTimeout(() => {
-          const aiMove = game.getAiMove();
-          game.isAiThinking = false;
-
-          if (aiMove) {
-            game.placePiece(aiMove.r, aiMove.c);
-            renderBoard();
-            updateStatus();
-
-            setTimeout(() => {
-              executeRotationSequence();
-            }, 400);
-          }
-        }, 600);
-      }
-    }
-
-    // Update Status Dashboard & Buttons
-    function updateStatus() {
-      // Undo Button & Badge
-      btnUndo.disabled = game.historyStack.length === 0 || game.isAiThinking;
-      undoBadge.textContent = game.historyStack.length;
-
-      // Orbit Button State
-      btnOrbit.disabled = game.gamePhase !== 'ROTATE' || game.isAiThinking;
-      if (game.gamePhase === 'ROTATE' && !game.autoRotate) {
-        btnOrbit.classList.add('animate-pulse', 'ring-4', 'ring-cyan-400/50');
-      } else {
-        btnOrbit.classList.remove('animate-pulse', 'ring-4', 'ring-cyan-400/50');
-      }
-
-      // Player Active Cards
-      if (game.currentPlayer === 1) {
-        p1Card.className = "flex items-center space-x-3 px-3 py-2 rounded-xl transition-all border border-cyan-500/40 bg-cyan-950/40 shadow-glow-p1";
-        p2Card.className = "flex items-center space-x-3 px-3 py-2 rounded-xl transition-all opacity-40 border border-transparent";
-      } else {
-        p2Card.className = "flex items-center space-x-3 px-3 py-2 rounded-xl transition-all border border-rose-500/40 bg-rose-950/40 shadow-glow-p2";
-        p1Card.className = "flex items-center space-x-3 px-3 py-2 rounded-xl transition-all opacity-40 border border-transparent";
-      }
-
-      // Labels
-      if (game.gameMode === 'pve') {
-        p2Name.textContent = `AI 機器人 (${game.aiDifficulty.toUpperCase()})`;
-      } else {
-        p2Name.textContent = `玩家 2 (紅)`;
-      }
-
-      // Status Banner Message
-      if (game.gamePhase === 'GAMEOVER') {
-        if (game.winner === 'DRAW') {
-          turnMsg.textContent = "平局！棋盤已滿";
-          turnMsg.className = "text-sm font-extrabold text-slate-300";
-        } else {
-          turnMsg.textContent = `🎉 玩家 ${game.winner} (${game.winner === 1 ? '藍' : '紅'}) 獲勝！`;
-          turnMsg.className = "text-sm font-extrabold text-amber-300 animate-bounce";
-        }
-        subMsg.textContent = "可點擊【悔棋】退回上一步嘗試不同玩法";
-      } else if (game.isAiThinking) {
-        turnMsg.textContent = "🤖 AI 思考中...";
-        turnMsg.className = "text-sm font-extrabold text-rose-400 animate-pulse";
-        subMsg.textContent = "請稍候";
-      } else if (game.gamePhase === 'ROTATE') {
-        turnMsg.textContent = "準備旋轉棋盤...";
-        turnMsg.className = "text-sm font-extrabold text-cyan-400 animate-pulse";
-        subMsg.textContent = "同心環將逆時針位移 1 格";
-      } else if (game.gamePhase === 'ANIMATING') {
-        turnMsg.textContent = "🌀 棋盤位移中...";
-        turnMsg.className = "text-sm font-extrabold text-indigo-300 animate-pulse";
-        subMsg.textContent = "檢查 4 連珠勝利連線";
-      } else {
-        const pName = game.currentPlayer === 1 ? '玩家 1 (藍)' : (game.gameMode === 'pve' ? 'AI 機器人' : '玩家 2 (紅)');
-        turnMsg.textContent = `輪到 ${pName} 落子`;
-        turnMsg.className = "text-sm font-extrabold text-amber-400";
-        subMsg.textContent = "點擊棋盤空白格放入棋子";
-      }
-    }
-
-    // Win Modal Popup
-    function showWinModal() {
-      if (game.winner === 'DRAW') {
-        winTitle.textContent = "🤝 勢均力敵！平局";
-        winDesc.textContent = "棋盤所有空位已滿，未產生連線。";
-      } else {
-        const pName = game.winner === 1 ? '玩家 1 (藍)' : (game.gameMode === 'pve' ? 'AI 機器人' : '玩家 2 (紅)');
-        winTitle.textContent = `👑 ${pName} 獲得勝利！`;
-        winDesc.textContent = `在同心環公轉後成功達成 4 子連線！`;
-      }
-      modalWin.classList.remove('hidden');
-    }
-
-    // Event Listeners: UNDO (悔棋)
-    btnUndo.addEventListener('click', () => {
-      if (game.undo()) {
-        renderBoard();
-        updateStatus();
-        modalWin.classList.add('hidden');
-      }
-    });
-
-    document.getElementById('btnModalUndo').addEventListener('click', () => {
-      modalWin.classList.add('hidden');
-      if (game.undo()) {
-        renderBoard();
-        updateStatus();
-      }
-    });
-
-    // Orbit Manual Button
-    btnOrbit.addEventListener('click', () => {
-      executeRotationSequence();
-    });
-
-    // Restart Button
-    btnRestart.addEventListener('click', () => {
-      initGame();
-    });
-    document.getElementById('btnModalPlayAgain').addEventListener('click', () => {
-      modalWin.classList.add('hidden');
-      initGame();
-    });
-
-    // Game Mode Switchers
-    modePvP.addEventListener('click', () => {
-      modePvP.className = "px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-1.5 bg-cyan-600 text-white shadow-md";
-      modePvE.className = "px-3 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
-      aiDiffGroup.classList.add('hidden');
-      aiDiffGroup.classList.remove('flex');
-      initGame();
-    });
-
-    modePvE.addEventListener('click', () => {
-      modePvE.className = "px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-1.5 bg-cyan-600 text-white shadow-md";
-      modePvP.className = "px-3 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white transition-all flex items-center space-x-1.5";
-      aiDiffGroup.classList.remove('hidden');
-      aiDiffGroup.classList.add('flex');
-      initGame();
-    });
-
-    // Board Size Buttons
-    document.querySelectorAll('.size-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.size-btn').forEach(b => {
-          b.className = "size-btn px-2.5 py-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white";
+        const stepNum = gameHistory.length;
+        gameHistory.push({
+          stepNumber: stepNum,
+          player: currentPlayer,
+          placedPos: pPos,
+          boardBefore: boardBefore,
+          boardAfterRotate: rotatedGrid,
+          nextPlayer: nextPlayer,
+          desc: `第 ${stepNum} 手: P${currentPlayer} 落子 (${r},${c}) ➔ CCW 旋轉`
         });
-        e.target.className = "size-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-600 text-white";
-        initGame();
-      });
-    });
 
-    // Settings Switches
-    aiDifficulty.addEventListener('change', () => initGame());
-    chkAutoRotate.addEventListener('change', () => {
-      game.autoRotate = chkAutoRotate.checked;
-    });
+        replayIndex = gameHistory.length - 1;
+        updateHistoryUI();
+        renderBoard();
 
-    // Rules Modal Triggers
-    document.getElementById('btnRules').addEventListener('click', () => {
-      modalRules.classList.remove('hidden');
-    });
-    document.getElementById('btnCloseRules').addEventListener('click', () => {
-      modalRules.classList.add('hidden');
-    });
-    document.getElementById('btnGotRules').addEventListener('click', () => {
-      modalRules.classList.add('hidden');
-    });
+        if (winResult.winner !== 0) {
+          handleGameOver(winResult);
+        } else {
+          currentPlayer = nextPlayer;
+          isAnimating = false;
+          updateStatusUI();
 
-    // Sound Toggle
-    btnSound.addEventListener('click', () => {
-      sfx.muted = !sfx.muted;
-      if (sfx.muted) {
-        soundIcon.className = "fa-solid fa-volume-xmark text-lg text-slate-500";
-      } else {
-        soundIcon.className = "fa-solid fa-volume-high text-lg text-cyan-400";
-        sfx.playPlace();
+          if (gameMode.startsWith('pve') && currentPlayer === 2) {
+            setTimeout(triggerAIMove, 500);
+          }
+        }
+      }, 450);
+    }
+
+    function triggerAIMove() {
+      if (isGameOver || isReplayMode) return;
+
+      const aiMove = AIPlayer.chooseMove(engine, 2, gameMode);
+      if (aiMove) {
+        executeMove(aiMove.r, aiMove.c);
       }
-    });
+    }
 
-    // Start Game on Page Load
-    window.addEventListener('DOMContentLoaded', () => {
-      initGame();
-    });
+    function handleGameOver(winResult) {
+      isGameOver = true;
+      isAnimating = false;
+      sounds.playWin();
+
+      drawWinningLines(winResult.lines);
+
+      const titleEl = document.getElementById('victory-title');
+      const subtitleEl = document.getElementById('victory-subtitle');
+      const avatarEl = document.getElementById('victory-avatar');
+
+      if (winResult.winner === 1) {
+        titleEl.innerText = "🎉 玩家一 獲得勝利！";
+        subtitleEl.innerText = "藍棋成功完成連線！策略超群！";
+        avatarEl.innerText = "👑";
+        avatarEl.className = "w-20 h-20 rounded-full flex items-center justify-center text-3xl mb-4 shadow-xl border-2 bg-cyan-950 border-cyan-400 text-cyan-300";
+      } else if (winResult.winner === 2) {
+        const winnerName = gameMode.startsWith('pve') ? "AI 機器人" : "玩家二";
+        titleEl.innerText = `🎉 ${winnerName} 獲得勝利！`;
+        subtitleEl.innerText = "紅棋成功完成連線！";
+        avatarEl.innerText = "🤖";
+        avatarEl.className = "w-20 h-20 rounded-full flex items-center justify-center text-3xl mb-4 shadow-xl border-2 bg-rose-950 border-rose-400 text-rose-300";
+      } else {
+        titleEl.innerText = "🤝 棋局平手！";
+        subtitleEl.innerText = "棋盤已滿或雙方同時完成連線！";
+        avatarEl.innerText = "⚖️";
+        avatarEl.className = "w-20 h-20 rounded-full flex items-center justify-center text-3xl mb-4 shadow-xl border-2 bg-amber-950 border-amber-400 text-amber-300";
+      }
+
+      document.getElementById('victory-total-steps').innerText = gameHistory.length - 1;
+      document.getElementById('victory-mode-label').innerText = document.getElementById('game-mode-select').options[document.getElementById('game-mode-select').selectedIndex].text.split(' ')[1];
+
+      setTimeout(() => {
+        openModal('victory-modal');
+      }, 700);
+
+      updateStatusUI();
+    }
+
+    /* ==========================================================================
+       7. REPLAY & STEP HISTORY CONTROL DOCK
+       ========================================================================== */
+    function updateHistoryUI() {
+      const listEl = document.getElementById('history-list');
+      const emptyMsg = document.getElementById('empty-history-msg');
+      document.getElementById('history-count-badge').innerText = `${gameHistory.length - 1} 手`;
+
+      if (gameHistory.length <= 1) {
+        if (emptyMsg) emptyMsg.classList.remove('hidden');
+        listEl.innerHTML = '';
+        if (emptyMsg) listEl.appendChild(emptyMsg);
+      } else {
+        if (emptyMsg) emptyMsg.classList.add('hidden');
+        listEl.innerHTML = '';
+
+        gameHistory.forEach((item, idx) => {
+          if (idx === 0) return;
+
+          const itemDiv = document.createElement('div');
+          const isActive = (idx === replayIndex);
+          itemDiv.className = `p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between text-xs ${
+            isActive 
+              ? 'bg-amber-500/20 border-amber-500/60 text-amber-200 shadow-md' 
+              : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+          }`;
+
+          itemDiv.onclick = () => jumpToStep(idx);
+
+          itemDiv.innerHTML = `
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${item.player === 1 ? 'bg-cyan-500 text-slate-950' : 'bg-rose-500 text-white'}">
+                ${item.player}
+              </span>
+              <div>
+                <span class="font-bold">第 ${idx} 步:</span>
+                <span class="text-slate-400">落子 (${item.placedPos.r}, ${item.placedPos.c})</span>
+              </div>
+            </div>
+            <span class="text-[10px] text-amber-400 font-semibold hover:underline">
+              ${isActive ? '📍 當前步' : '查看'}
+            </span>
+          `;
+
+          listEl.appendChild(itemDiv);
+        });
+
+        const activeEl = listEl.children[replayIndex - 1];
+        if (activeEl) {
+          activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+
+      updateReplayControlsUI();
+    }
+
+    function updateReplayControlsUI() {
+      const slider = document.getElementById('replay-slider');
+      const maxSteps = Math.max(0, gameHistory.length - 1);
+      slider.max = maxSteps;
+      slider.value = replayIndex;
+
+      document.getElementById('current-step-num').innerText = replayIndex;
+      document.getElementById('total-step-num').innerText = maxSteps;
+
+      document.getElementById('takeover-btn-text').innerText = `🎮 從第 ${replayIndex} 步接管對局 (繼續對弈)`;
+
+      const titleEl = document.getElementById('mode-title');
+      const iconEl = document.getElementById('mode-badge-icon');
+      const replayBtnText = document.getElementById('replay-btn-text');
+
+      if (isReplayMode) {
+        titleEl.innerText = "🔍 覆盤瀏覽模式";
+        iconEl.className = "w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm font-bold border border-amber-500/40 animate-pulse";
+        replayBtnText.innerText = "退出覆盤";
+      } else {
+        titleEl.innerText = "🎮 實時對弈模式";
+        iconEl.className = "w-8 h-8 rounded-xl bg-slate-800 text-cyan-400 flex items-center justify-center text-sm font-bold border border-slate-700";
+        replayBtnText.innerText = "進入覆盤";
+      }
+    }
+
+    function toggleReplayMode() {
+      sounds.playClick();
+      isReplayMode = !isReplayMode;
+      pauseReplay();
+
+      if (isReplayMode) {
+        replayIndex = gameHistory.length - 1;
+        showToast("已進入覆盤模式，自由播放/滑動步數", "info");
+      } else {
+        showToast("已返回實時對弈", "info");
+      }
+
+      renderBoard();
+      updateHistoryUI();
+      updateStatusUI();
+    }
+
+    function jumpToStep(idx) {
+      sounds.playClick();
+      if (idx < 0 || idx >= gameHistory.length) return;
+      isReplayMode = true;
+      replayIndex = idx;
+      clearWinningCanvas();
+      renderBoard();
+      updateHistoryUI();
+      updateStatusUI();
+    }
+
+    function firstStep() { jumpToStep(0); }
+    function prevStep() { jumpToStep(Math.max(0, replayIndex - 1)); }
+    function nextStep() { jumpToStep(Math.min(gameHistory.length - 1, replayIndex + 1)); }
+    function lastStep() { jumpToStep(gameHistory.length - 1); }
+
+    function onSliderChange(val) {
+      jumpToStep(parseInt(val, 10));
+    }
+
+    function togglePlayPause() {
+      if (replayTimer) {
+        pauseReplay();
+      } else {
+        startReplay();
+      }
+    }
+
+    function startReplay() {
+      if (gameHistory.length <= 1) return;
+      isReplayMode = true;
+      if (replayIndex >= gameHistory.length - 1) replayIndex = 0;
+
+      document.getElementById('play-icon').className = 'fa-solid fa-pause';
+      document.getElementById('play-btn-label').innerText = '暫停';
+
+      replayTimer = setInterval(() => {
+        if (replayIndex < gameHistory.length - 1) {
+          replayIndex++;
+          jumpToStep(replayIndex);
+        } else {
+          pauseReplay();
+        }
+      }, replaySpeed);
+    }
+
+    function pauseReplay() {
+      if (replayTimer) {
+        clearInterval(replayTimer);
+        replayTimer = null;
+      }
+      document.getElementById('play-icon').className = 'fa-solid fa-play';
+      document.getElementById('play-btn-label').innerText = '播放';
+    }
+
+    function changeReplaySpeed(val) {
+      replaySpeed = parseInt(val, 10);
+      if (replayTimer) {
+        pauseReplay();
+        startReplay();
+      }
+    }
+
+    /* ==========================================================================
+       8. CANVAS WINNING LINE RENDERER & TOAST SYSTEM
+       ========================================================================== */
+    function drawWinningLines(lines) {
+      const canvas = document.getElementById('win-line-canvas');
+      const ctx = canvas.getContext('2d');
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!lines || lines.length === 0) return;
+
+      const cellWidth = canvas.width / engine.size;
+      const cellHeight = canvas.height / engine.size;
+
+      lines.forEach(({ player, cells }) => {
+        if (cells.length === 0) return;
+
+        const first = cells[0];
+        const last = cells[cells.length - 1];
+
+        const x1 = first[1] * cellWidth + cellWidth / 2;
+        const y1 = first[0] * cellHeight + cellHeight / 2;
+        const x2 = last[1] * cellWidth + cellWidth / 2;
+        const y2 = last[0] * cellHeight + cellHeight / 2;
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = player === 1 ? '#38bdf8' : '#f43f5e';
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 15;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+      });
+    }
+
+    function clearWinningCanvas() {
+      const canvas = document.getElementById('win-line-canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function updateStatusUI() {
+      const statusText = document.getElementById('status-text');
+      const statusCard = document.getElementById('status-card');
+
+      if (isGameOver) {
+        statusText.innerText = "對局已結束";
+        statusCard.className = "w-full glass-card rounded-2xl p-4 flex items-center justify-between border-l-4 border-amber-500 shadow-xl";
+        return;
+      }
+
+      if (isReplayMode) {
+        statusText.innerText = `覆盤中 (第 ${replayIndex} 步)`;
+        statusCard.className = "w-full glass-card rounded-2xl p-4 flex items-center justify-between border-l-4 border-amber-400 shadow-xl";
+        return;
+      }
+
+      const pName = currentPlayer === 1 ? "玩家一 (藍)" : (gameMode.startsWith('pve') ? "AI (紅)" : "玩家二 (紅)");
+      statusText.innerText = `輪到 ${pName} 落子`;
+
+      if (currentPlayer === 1) {
+        statusCard.className = "w-full glass-card rounded-2xl p-4 flex items-center justify-between border-l-4 border-cyan-500 shadow-cyan-500/10";
+      } else {
+        statusCard.className = "w-full glass-card rounded-2xl p-4 flex items-center justify-between border-l-4 border-rose-500 shadow-rose-500/10";
+      }
+    }
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+
+      const bg = type === 'success' 
+        ? 'bg-amber-500 text-slate-950 border-amber-300 font-bold' 
+        : 'bg-slate-900/90 text-slate-200 border-slate-700';
+
+      toast.className = `px-4 py-2 rounded-xl text-xs shadow-xl border backdrop-blur-md transition-all duration-300 transform translate-y-2 opacity-0 flex items-center gap-2 ${bg}`;
+      toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-bolt' : 'fa-info-circle'}"></i> ${msg}`;
+
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', '-translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 2500);
+    }
+
+    /* ==========================================================================
+       9. GAME INITIALIZATION & EVENT LISTENERS
+       ========================================================================== */
+    function setGridSize(size) {
+      if (gridSize === size) return;
+      sounds.playClick();
+      gridSize = size;
+
+      ['4', '5', '6'].forEach(s => {
+        const btn = document.getElementById(`size-${s}-btn`);
+        if (parseInt(s, 10) === size) {
+          btn.className = "px-2.5 py-1.5 rounded-lg font-bold transition text-cyan-400 bg-slate-800 shadow";
+        } else {
+          btn.className = "px-2.5 py-1.5 rounded-lg font-semibold transition text-slate-400 hover:text-white";
+        }
+      });
+
+      engine = new OrbitoEngine(gridSize);
+      restartGame();
+    }
+
+    function changeGameMode(mode) {
+      sounds.playClick();
+      gameMode = mode;
+      const p2Label = document.getElementById('p2-label');
+      if (gameMode.startsWith('pve')) {
+        p2Label.innerText = "AI 機器人";
+      } else {
+        p2Label.innerText = "玩家二";
+      }
+      restartGame();
+    }
+
+    function restartGame() {
+      pauseReplay();
+      engine.reset();
+      currentPlayer = 1;
+      isGameOver = false;
+      isAnimating = false;
+      isReplayMode = false;
+      replayIndex = 0;
+
+      gameHistory = [createInitialHistoryEntry()];
+
+      clearWinningCanvas();
+      renderBoard();
+      updateHistoryUI();
+      updateStatusUI();
+      showToast("新棋局已開始", "info");
+    }
+
+    function openModal(id) {
+      sounds.playClick();
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      sounds.playClick();
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    window.onload = function () {
+      restartGame();
+    };
   </script>
 </body>
 </html>
